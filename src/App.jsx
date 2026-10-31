@@ -1,163 +1,55 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db, firebaseConfigured } from "./firebase";
-import {
-  BookOpen, GraduationCap, ShieldCheck, Presentation, FolderUp, LogOut,
-  Menu, Bell, LockKeyhole, CircleAlert, LayoutDashboard, Users, School,
-  BookMarked, Settings, ChevronRight, Search, Plus, ArrowUpRight, X
-} from "lucide-react";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { auth, db, storage, firebaseConfigured } from "./firebase";
+import { BookOpen, GraduationCap, ShieldCheck, Presentation, FolderUp, LogOut, Menu, Bell, LockKeyhole, CircleAlert, LayoutDashboard, Users, School, BookMarked, Settings, ChevronRight, Search, Plus, ArrowUpRight, X, Upload, Trash2, CalendarDays, Megaphone, Moon, Sun, FileText, ClipboardList } from "lucide-react";
 
 const roles = [
-  { id: "super_admin", label: "Super Admin", hint: "School-wide control", Icon: ShieldCheck },
-  { id: "teacher_admin", label: "Teacher Admin", hint: "Classroom and student management", Icon: Presentation },
-  { id: "content_admin", label: "Content Admin", hint: "Learning resources and notices", Icon: FolderUp },
-  { id: "student", label: "Student", hint: "Access your class resources", Icon: GraduationCap },
+  { id:"super_admin", label:"Super Admin", hint:"School-wide control", Icon:ShieldCheck },
+  { id:"teacher_admin", label:"Teacher Admin", hint:"Classroom and student management", Icon:Presentation },
+  { id:"content_admin", label:"Content Admin", hint:"Learning resources and notices", Icon:FolderUp },
+  { id:"student", label:"Student", hint:"Access your class resources", Icon:GraduationCap }
 ];
-
 const navByRole = {
-  super_admin: [
-    ["overview", "Overview", LayoutDashboard],
-    ["staff", "Staff accounts", Users],
-    ["classes", "Classes & sections", School],
-    ["resources", "Learning resources", BookOpen],
-    ["settings", "School settings", Settings],
-  ],
-  teacher_admin: [
-    ["overview", "Overview", LayoutDashboard],
-    ["students", "Students", GraduationCap],
-    ["homework", "Homework", BookMarked],
-    ["resources", "Learning resources", BookOpen],
-  ],
-  content_admin: [
-    ["overview", "Overview", LayoutDashboard],
-    ["resources", "Learning resources", BookOpen],
-    ["announcements", "Announcements", Bell],
-  ],
-  student: [
-    ["overview", "Overview", LayoutDashboard],
-    ["resources", "Study materials", BookOpen],
-    ["homework", "Homework", BookMarked],
-    ["profile", "My profile", GraduationCap],
-  ],
+  super_admin:[["overview","Overview",LayoutDashboard],["staff","Staff accounts",Users],["classes","Classes & sections",School],["students","Students",GraduationCap],["subjects","Subjects",BookOpen],["resources","Learning resources",FolderUp],["homework","Homework",BookMarked],["announcements","Announcements",Megaphone],["settings","School settings",Settings]],
+  teacher_admin:[["overview","Overview",LayoutDashboard],["students","Students",GraduationCap],["homework","Homework",BookMarked],["resources","Learning resources",BookOpen],["announcements","Announcements",Megaphone]],
+  content_admin:[["overview","Overview",LayoutDashboard],["resources","Learning resources",FolderUp],["announcements","Announcements",Megaphone]],
+  student:[["overview","Overview",LayoutDashboard],["resources","Study materials",BookOpen],["homework","Homework",BookMarked],["announcements","Announcements",Megaphone],["profile","My profile",GraduationCap]]
 };
-
-function ComingSoon({ title, description }) {
-  return <div className="empty-state"><div className="empty-icon"><BookOpen/></div><h3>{title}</h3><p>{description}</p><span>Next development module</span></div>;
+const config = {
+  staff:{title:"Staff accounts",collection:"staff",fields:[["name","Full name"],["email","Email"],["staffRole","Role"]],adminOnly:true},
+  classes:{title:"Classes & sections",collection:"classes",fields:[["name","Class name (e.g. Class 9)"],["sections","Sections (comma separated)"]],adminOnly:true},
+  students:{title:"Students",collection:"students",fields:[["name","Student name"],["email","Email"],["className","Class"],["section","Section"],["rollNumber","Roll number"]]},
+  subjects:{title:"Subjects",collection:"subjects",fields:[["name","Subject name"],["className","Class"]],adminOnly:true},
+  resources:{title:"Learning resources",collection:"materials",fields:[["title","Resource title"],["subject","Subject"],["className","Class"],["section","Section"],["description","Description"]],file:true},
+  homework:{title:"Homework",collection:"homework",fields:[["title","Assignment title"],["subject","Subject"],["className","Class"],["section","Section"],["dueDate","Due date"],["description","Instructions"]]},
+  announcements:{title:"Announcements",collection:"announcements",fields:[["title","Announcement title"],["className","Class (optional)"],["section","Section (optional)"],["body","Message"]]},
+  settings:{title:"School settings",collection:"school_settings",fields:[["schoolName","School name"],["academicYear","Academic year"],["contactEmail","School contact email"]],adminOnly:true}
+};
+function dateLabel(value){ if(!value)return "—"; const d=value?.toDate?value.toDate():new Date(value); return Number.isNaN(d.getTime())?"—":d.toLocaleDateString(); }
+function App(){
+ const [role,setRole]=useState("student"),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[user,setUser]=useState(null),[profile,setProfile]=useState(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[checking,setChecking]=useState(true),[page,setPage]=useState("overview"),[mobileNav,setMobileNav]=useState(false),[darkMode,setDarkMode]=useState(()=>localStorage.getItem("studyspace-theme")==="dark"),[navSearch,setNavSearch]=useState(""),[records,setRecords]=useState({}),[loadingData,setLoadingData]=useState(false),[modal,setModal]=useState(false),[form,setForm]=useState({}),[file,setFile]=useState(null),[saving,setSaving]=useState(false),[notice,setNotice]=useState("");
+ useEffect(()=>{document.documentElement.dataset.theme=darkMode?"dark":"light";localStorage.setItem("studyspace-theme",darkMode?"dark":"light")},[darkMode]);
+ useEffect(()=>{if(!auth){setChecking(false);return}return onAuthStateChanged(auth,async current=>{setUser(current);if(current){try{const s=await getDoc(doc(db,"users",current.uid));setProfile(s.exists()?s.data():null)}catch(e){setError("Could not read your school profile: "+e.message);setProfile(null)}}else setProfile(null);setChecking(false)})},[]);
+ async function login(e){e.preventDefault();setBusy(true);setError("");try{const r=await signInWithEmailAndPassword(auth,email.trim(),password);const s=await getDoc(doc(db,"users",r.user.uid));if(!s.exists())throw Error("No school profile exists for this account. Ask the Super Admin.");const p=s.data();if(p.active!==true)throw Error("This account is inactive.");if(p.role!==role)throw Error("Choose the role assigned to this account.");setProfile(p);setPage("overview")}catch(e){setError(e.code==="auth/invalid-credential"?"Incorrect email or password.":e.message);if(auth.currentUser)await signOut(auth)}finally{setBusy(false)}}
+ const currentRole=profile?.role||"student", nav=navByRole[currentRole]||navByRole.student, info=nav.find(x=>x[0]===page)||nav[0], section=config[page];
+ useEffect(()=>{if(!user||!profile||!section)return;setLoadingData(true);const unsub=onSnapshot(query(collection(db,section.collection)),snap=>{let rows=snap.docs.map(d=>({id:d.id,...d.data()}));if(currentRole==="student"&&["materials","homework","announcements","students"].includes(section.collection)){rows=rows.filter(x=>(!x.className||x.className===profile.className)&&(!x.section||x.section===profile.section))}setRecords(old=>({...old,[page]:rows}));setLoadingData(false)},e=>{setNotice("Could not load "+section.title+": "+e.message);setLoadingData(false)});return()=>unsub()},[user,profile,page,currentRole]);
+ const filtered=nav.filter(n=>n[1].toLowerCase().includes(navSearch.toLowerCase()));
+ async function saveRecord(e){e.preventDefault();if(!section)return;setSaving(true);setNotice("");try{let data={...form,createdBy:user.uid,createdAt:serverTimestamp(),updatedAt:serverTimestamp()};if(page==="announcements")data.visibility=form.className?"class":"school";if(file&&section.file){const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");const storageRef=ref(storage,"materials/"+user.uid+"/"+Date.now()+"-"+safe);await uploadBytes(storageRef,file);data.fileUrl=await getDownloadURL(storageRef);data.fileName=file.name;data.fileType=file.type}await addDoc(collection(db,section.collection),data);setModal(false);setForm({});setFile(null);setNotice("Saved successfully.")}catch(e){setNotice("Could not save: "+e.message)}finally{setSaving(false)}}
+ async function removeRecord(row){if(!confirm("Delete this item? This cannot be undone."))return;try{await deleteDoc(doc(db,section.collection,row.id));setNotice("Deleted.")}catch(e){setNotice("Delete failed: "+e.message)}}
+ async function saveProfile(e){e.preventDefault();try{await setDoc(doc(db,"users",user.uid),{...profile,name:form.name||profile.name,className:form.className||profile.className,section:form.section||profile.section},{merge:true});setProfile(p=>({...p,...form}));setNotice("Profile updated.")}catch(e){setNotice(e.message)}}
+ if(checking)return <main className="center"><div className="loader"/>Loading StudySpace…</main>;
+ if(user&&profile){const initials=(profile.name||user.email||"U").slice(0,1).toUpperCase();return <main className="app-shell">
+ <aside className={`sidebar ${mobileNav?"sidebar-open":""}`}><div className="brand"><span className="brand-icon"><GraduationCap/></span><span>StudySpace<small>School learning portal</small></span><button className="mobile-close icon-btn" onClick={()=>setMobileNav(false)}><X/></button></div><div className="nav-label">WORKSPACE</div><div className="nav-search"><Search size={15}/><input placeholder="Find a section…" value={navSearch} onChange={e=>setNavSearch(e.target.value)}/></div>{filtered.map(([id,label,Icon])=><button key={id} className={`nav-item ${page===id?"active":""}`} onClick={()=>{setPage(id);setMobileNav(false);setNotice("")}}><Icon size={18}/>{label}{page===id&&<ChevronRight className="nav-arrow" size={15}/>}</button>)}<div className="sidebar-bottom"><div className="avatar">{initials}</div><div className="user-meta"><b>{profile.name||"School user"}</b><small>{roles.find(r=>r.id===currentRole)?.label}</small></div><button className="icon-btn" onClick={()=>signOut(auth)}><LogOut size={18}/></button></div></aside>
+ {mobileNav&&<button className="nav-scrim" onClick={()=>setMobileNav(false)}/>}<section className="workspace"><header className="topbar"><button className="mobile-brand icon-btn" onClick={()=>setMobileNav(true)}><Menu/><b>StudySpace</b></button><span className="school-label">SCHOOL PORTAL</span><div className="top-actions"><span className="top-user">{user.email}</span><button className="theme-toggle" onClick={()=>setDarkMode(v=>!v)}>{darkMode?<Sun size={15}/>:<Moon size={15}/>}<span>{darkMode?"Light":"Dark"}</span></button><button className="account-chip" onClick={()=>signOut(auth)}><span className="mini-avatar">{initials}</span><span>Sign out</span></button></div></header><div className="content">
+ <div className="welcome"><div><p className="eyebrow">{currentRole.replace("_"," ").toUpperCase()}</p><h1>{page==="overview"?"Welcome, "+(profile.name||"there")+".":info[1]}</h1><p className="muted">{page==="overview"?"Your school workspace, all in one place.":"Manage and explore "+info[1].toLowerCase()+"."}</p><div className="welcome-meta"><span className="live-dot"/> Connected to school account</div></div><span className="welcome-mark"><GraduationCap size={34}/></span></div>
+ {notice&&<div className="notice"><CircleAlert size={16}/>{notice}</div>}
+ {page==="overview"?<><div className="status-card"><div className="status-icon"><ShieldCheck/></div><div><b>Account verified</b><p>Signed in as {roles.find(r=>r.id===currentRole)?.label}. Your access is based on your school role.</p></div></div><div className="section-heading"><h2>Your workspace</h2></div><div className="admin-grid">{nav.filter(n=>n[0]!=="overview").map(([id,label,Icon])=><button className="admin-tile" key={id} onClick={()=>setPage(id)}><span className="tile-icon"><Icon/></span><b>{label}</b><p>Open and manage {label.toLowerCase()}.</p><ArrowUpRight/></button>)}</div><div className="section-heading"><h2>Quick summary</h2></div><div className="setup-grid">{["students","classes","materials","homework","announcements"].map((c,i)=><div className="setup-card" key={c}><b>{records[c]?.length??"—"}</b><p>{["Students","Classes","Learning resources","Homework items","Announcements"][i]}</p></div>)}</div></>:
+ page==="profile"?<form className="data-form" onSubmit={saveProfile}><label>Full name<input defaultValue={profile.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></label><label>Class<input defaultValue={profile.className||""} onChange={e=>setForm(f=>({...f,className:e.target.value}))}/></label><label>Section<input defaultValue={profile.section||""} onChange={e=>setForm(f=>({...f,section:e.target.value}))}/></label><button className="submit-btn">Save profile</button></form>:
+ section?<><div className="section-heading"><h2>{section.title}</h2>{!section.adminOnly||currentRole==="super_admin"?<button className="primary-small" onClick={()=>{setForm({});setFile(null);setModal(true)}}><Plus size={15}/> Add new</button>:null}</div>{loadingData?<p>Loading…</p>:<div className="record-grid">{(records[page]||[]).map(row=><article className="record-card" key={row.id}><div className="record-head"><span className="tile-icon">{page==="homework"?<ClipboardList/>:page==="announcements"?<Megaphone/>:page==="resources"?<FileText/>:<BookOpen/>}</span><small>{dateLabel(row.createdAt)}</small></div><h3>{row.title||row.name||row.schoolName||"Untitled"}</h3><p>{row.description||row.body||[row.className,row.section,row.subject].filter(Boolean).join(" · ")||row.email||"—"}</p>{row.dueDate&&<small className="due-date"><CalendarDays size={13}/> Due {row.dueDate}</small>}{row.fileUrl&&<a href={row.fileUrl} target="_blank" rel="noreferrer">Open attachment ↗</a>}{row.email&&<small>{row.email}</small>}{currentRole!=="student"&&<button className="delete-btn" onClick={()=>removeRecord(row)}><Trash2 size={14}/> Delete</button>}</article>)}{!records[page]?.length&&<div className="empty-state"><div className="empty-icon"><BookOpen/></div><h3>No {section.title.toLowerCase()} yet</h3><p>Use Add new to create the first item.</p></div>}</div>}</>:null}
+ {modal&&section&&<div className="modal-backdrop" onClick={()=>setModal(false)}><form className="modal-card" onSubmit={saveRecord} onClick={e=>e.stopPropagation()}><div className="modal-head"><h2>Add {section.title.toLowerCase()}</h2><button type="button" className="icon-btn" onClick={()=>setModal(false)}><X/></button></div>{section.fields.map(([key,label])=><label key={key}>{label}{key==="description"||key==="body"?<textarea required={key==="body"} value={form[key]||""} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))}/>:<input required={["name","title"].includes(key)} type={key==="dueDate"?"date":key==="email"||key==="contactEmail"?"email":"text"} value={form[key]||""} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))}/>}</label>)}{section.file&&<label>Attachment<input type="file" onChange={e=>setFile(e.target.files?.[0]||null)}/></label>}<button className="submit-btn" disabled={saving}>{saving?"Saving…":"Save"}</button></form></div>}
+ </div></section></main>}
+ return <main className="login-page"><section className="login-panel"><div className="brand login-brand"><span className="brand-icon"><GraduationCap/></span><span>StudySpace<small>One school. One learning space.</small></span></div><div className="login-heading"><p className="eyebrow">SCHOOL PORTAL</p><h1>Welcome back</h1><p className="muted">Choose your account type to continue.</p></div>{!firebaseConfigured&&<div className="notice">Firebase configuration is needed.</div>}<div className="role-grid">{roles.map(({id,label,hint,Icon})=><button key={id} className={`role-option ${role===id?"selected":""}`} onClick={()=>setRole(id)}><span className="role-icon"><Icon size={20}/></span><span className="role-copy"><b>{label}</b><small>{hint}</small></span><span className="radio-dot"/></button>)}</div><form onSubmit={login} className="login-form"><label>Email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username" required/></label><label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required/></label>{error&&<div className="error"><CircleAlert size={17}/>{error}</div>}<button className="submit-btn" disabled={!firebaseConfigured||busy}>{busy?"Signing in…":"Sign in"} →</button></form><div className="secure-note"><LockKeyhole size={14}/> Secure school access · Accounts are created by school admins</div><p className="footer-note">Need an account? Contact your school administrator.</p></section><aside className="login-art"><div className="art-content"><div className="art-symbol"><BookOpen size={44}/></div><p className="eyebrow">LEARN · ORGANISE · GROW</p><h2>Everything for school,<br/>in one simple place.</h2><p>Notes, homework and class resources — organised around your classroom.</p><div className="art-chips"><span>Study materials</span><span>Homework</span><span>Class updates</span></div></div></aside></main>
 }
-
-export default function App() {
-  const [role, setRole] = useState("student");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const [page, setPage] = useState("overview");
-  const [mobileNav, setMobileNav] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => {
-    try { return localStorage.getItem("studyspace-theme") === "dark"; } catch { return false; }
-  });
-  const [navSearch, setNavSearch] = useState("");
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showAccount, setShowAccount] = useState(false);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = darkMode ? "dark" : "light";
-    try { localStorage.setItem("studyspace-theme", darkMode ? "dark" : "light"); } catch {}
-  }, [darkMode]);
-
-  useEffect(() => {
-    if (!auth) { setChecking(false); return; }
-    return onAuthStateChanged(auth, async (current) => {
-      setUser(current);
-      if (current) {
-        try {
-          const snap = await getDoc(doc(db, "users", current.uid));
-          setProfile(snap.exists() ? snap.data() : null);
-        } catch { setProfile(null); }
-      } else { setProfile(null); setPage("overview"); }
-      setChecking(false);
-    });
-  }, []);
-
-  async function handleLogin(e) {
-    e.preventDefault(); setError(""); setBusy(true);
-    try {
-      const result = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const snap = await getDoc(doc(db, "users", result.user.uid));
-      if (!snap.exists()) throw new Error("Your account has no school profile. Ask the Super Admin to set it up.");
-      const data = snap.data();
-      if (data.role !== role) throw new Error("This account does not have the selected login role.");
-      if (data.active !== true) throw new Error("This account is inactive. Contact the school administrator.");
-      setProfile(data); setPage("overview");
-    } catch (err) {
-      setError(err.code === "auth/invalid-credential" ? "Incorrect email or password." : (err.message || "Unable to sign in."));
-      if (auth?.currentUser) await signOut(auth);
-    } finally { setBusy(false); }
-  }
-
-  if (checking) return <main className="center"><div className="loader"/>Loading StudySpace…</main>;
-
-  if (user && profile) {
-    const currentRole = profile.role;
-    const roleInfo = roles.find(r => r.id === currentRole) || roles[0];
-    const nav = navByRole[currentRole] || navByRole.student;
-    const pageInfo = nav.find(n => n[0] === page) || nav[0];
-    const filteredNav = nav.filter((n) => n[1].toLowerCase().includes(navSearch.toLowerCase()));
-    const initials = (profile.name || user.email || "U").slice(0,1).toUpperCase();
-    return <main className="app-shell">
-      <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
-        <div className="brand"><span className="brand-icon"><GraduationCap/></span><span>StudySpace<small>School learning portal</small></span><button className="mobile-close icon-btn" onClick={()=>setMobileNav(false)}><X/></button></div>
-        <div className="nav-label">WORKSPACE</div>
-        <div className="nav-search"><Search size={15}/><input aria-label="Search navigation" placeholder="Find a section…" value={navSearch} onChange={e=>setNavSearch(e.target.value)}/></div>
-        {filteredNav.length ? filteredNav.map(([id,label,Icon])=><button key={id} className={`nav-item ${page===id?"active":""}`} onClick={()=>{setPage(id);setMobileNav(false)}}><Icon size={18}/>{label}{page===id&&<ChevronRight className="nav-arrow" size={15}/>}</button>) : <p className="nav-empty">No matching sections</p>}
-        <div className="sidebar-bottom"><div className="avatar">{initials}</div><div className="user-meta"><b>{profile.name || "School user"}</b><small>{roleInfo.label}</small></div><button className="icon-btn" onClick={()=>signOut(auth)} aria-label="Sign out"><LogOut size={18}/></button></div>
-      </aside>
-      {mobileNav && <button className="nav-scrim" onClick={()=>setMobileNav(false)} aria-label="Close navigation"/>}
-      <section className="workspace">
-        <header className="topbar"><button className="mobile-brand icon-btn" onClick={()=>setMobileNav(true)}><Menu/> <b>StudySpace</b></button><span className="school-label">SCHOOL PORTAL</span><div className="top-actions"><span className="top-user">{profile.name || user.email}</span><div className="top-pop-wrap"><button className="icon-btn top-action-btn" aria-label="Notifications" aria-expanded={showNotifications} onClick={()=>{setShowNotifications(v=>!v);setShowAccount(false)}}><Bell size={19}/><i className="notification-dot"/></button>{showNotifications&&<div className="top-popover"><b>Notifications</b><p>You're all caught up.</p><small>New school updates will appear here.</small></div>}</div><button className="theme-toggle" onClick={()=>setDarkMode(v=>!v)} aria-label={darkMode?"Switch to light mode":"Switch to dark mode"}>{darkMode?"☀":"☾"}<span>{darkMode?"Light":"Dark"}</span></button><div className="top-pop-wrap"><button className="account-chip" onClick={()=>{setShowAccount(v=>!v);setShowNotifications(false)}} aria-expanded={showAccount}><span className="mini-avatar">{initials}</span><span>{profile.name || "Account"}</span></button>{showAccount&&<div className="top-popover account-pop"><b>{profile.name || "School user"}</b><small>{user.email}</small><small>{roleInfo.label}</small><button onClick={()=>signOut(auth)}><LogOut size={14}/> Sign out</button></div>}</div></div></header>
-        <div className="content">
-          <div className="welcome"><div><p className="eyebrow">{roleInfo.label.toUpperCase()}</p><h1>{page==="overview" ? `Welcome, ${profile.name || "there"}.` : pageInfo[1]}</h1><p className="muted">{page==="overview" ? "Here is your school workspace at a glance." : "Manage your school workspace from here."}</p><div className="welcome-meta"><span><span className="live-dot"/> Connected to school account</span><span>•</span><span>{roleInfo.label}</span></div></div><span className="welcome-mark"><GraduationCap size={34}/></span></div>
-          {page==="overview" ? <>
-            <div className="status-card"><div className="status-icon"><ShieldCheck/></div><div><b>Account verified</b><p>You are signed in as <strong>{roleInfo.label}</strong>. Your access is based on your assigned school role.</p></div></div>
-            {currentRole==="super_admin" ? <>
-              <div className="section-heading"><h2>Administration</h2><span className="pill">Phase 1</span></div>
-              <div className="admin-grid">
-                <button className="admin-tile" onClick={()=>setPage("staff")}><span className="tile-icon"><Users/></span><b>Staff accounts</b><p>Manage teacher and content-admin access.</p><ArrowUpRight/></button>
-                <button className="admin-tile" onClick={()=>setPage("classes")}><span className="tile-icon"><School/></span><b>Classes & sections</b><p>Set up the school's class structure.</p><ArrowUpRight/></button>
-                <button className="admin-tile" onClick={()=>setPage("resources")}><span className="tile-icon"><BookOpen/></span><b>Learning resources</b><p>Review the school's learning library.</p><ArrowUpRight/></button>
-              </div>
-              <div className="section-heading"><h2>Foundation checklist</h2><span className="pill">Setup</span></div>
-              <div className="checklist"><div><span className="check">✓</span><span><b>Firebase connected</b><small>Web app configuration is in place.</small></span><em>Ready</em></div><div><span className="check">✓</span><span><b>Admin profile created</b><small>Your Firestore role profile is recognised.</small></span><em>Ready</em></div><div><span className="pending-dot"/> <span><b>Staff provisioning</b><small>Secure staff account creation is the next backend task.</small></span><em className="pending-text">Next</em></div></div>
-            </> : <><div className="section-heading"><h2>Your workspace</h2></div><div className="setup-grid"><div className="setup-card"><BookOpen/><b>Learning resources</b><p>Class and subject resources will appear here.</p><span>Coming next</span></div><div className="setup-card"><BookMarked/><b>Homework</b><p>Assignments and due dates will appear here.</p><span>Coming next</span></div></div></>}
-          </> : page==="staff" ? <ComingSoon title="Staff accounts" description="The next module will let you create teacher and content-admin accounts securely, assign roles and deactivate access."/> :
-            page==="classes" ? <ComingSoon title="Classes & sections" description="Create classes, add sections and organise the school structure here."/> :
-            page==="resources" ? <ComingSoon title="Learning resources" description="Upload and organise PDFs, notes and learning materials by class, section and subject."/> :
-            page==="settings" ? <ComingSoon title="School settings" description="Configure the school name, academic year and basic preferences."/> :
-<ComingSoon title={pageInfo[1]} description="This section will be added in the next development module."/>}
-        </div>
-      </section>
-    </main>;
-  }
-
-  return <main className="login-page">
-    <section className="login-panel">
-      <div className="brand login-brand"><span className="brand-icon"><GraduationCap/></span><span>StudySpace<small>One school. One learning space.</small></span></div>
-      <div className="login-heading"><p className="eyebrow">SCHOOL PORTAL</p><h1>Welcome back</h1><p className="muted">Choose your account type to continue.</p></div>
-      {!firebaseConfigured && <div className="notice"><CircleAlert size={18}/><span>Firebase configuration is needed before sign-in can work.</span></div>}
-      <div className="role-grid">{roles.map(({id,label,hint,Icon})=><button key={id} className={`role-option ${role===id?"selected":""}`} onClick={()=>setRole(id)}><span className="role-icon"><Icon size={20}/></span><span className="role-copy"><b>{label}</b><small>{hint}</small></span><span className="radio-dot"/></button>)}</div>
-      <form onSubmit={handleLogin} className="login-form">
-        <label>Email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@school.edu" autoComplete="username" required/></label>
-        <label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password" autoComplete="current-password" required/></label>
-        {error && <div className="error"><CircleAlert size={17}/>{error}</div>}
-        <button className="submit-btn" type="submit" disabled={!firebaseConfigured || busy}>{busy?"Signing in…":"Sign in"} <span>→</span></button>
-      </form>
-      <div className="secure-note"><LockKeyhole size={14}/> Secure school access · Accounts are created by school admins</div>
-      <p className="footer-note">Need an account? Contact your school administrator.</p>
-    </section>
-    <aside className="login-art"><div className="art-orbit orbit-one"/><div className="art-orbit orbit-two"/><div className="art-content"><div className="art-symbol"><BookOpen size={44}/></div><p className="eyebrow">LEARN · ORGANISE · GROW</p><h2>Everything for school,<br/>in one simple place.</h2><p>Notes, homework and class resources — organised around your classroom.</p><div className="art-chips"><span>Study materials</span><span>Homework</span><span>Class updates</span></div></div><div className="art-footer">STUDYSPACE · SCHOOL PORTAL</div></aside>
-  </main>;
-}
+export default App;
