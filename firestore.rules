@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function activeUser() { return signedIn() && userDoc().active == true; }
+    function roleIs(role) { return activeUser() && userDoc().role == role; }
+    function isAdmin() {
+      return roleIs('super_admin') || roleIs('teacher_admin') || roleIs('content_admin');
+    }
+    function sameClass(classId, sectionId) {
+      return activeUser() && userDoc().classId == classId && userDoc().sectionId == sectionId;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      // User profiles and roles are provisioned only through trusted Admin SDK code.
+      allow create, update, delete: if false;
+    }
+
+    match /classes/{classId} {
+      allow read: if activeUser();
+      allow write: if roleIs('super_admin');
+    }
+
+    match /subjects/{subjectId} {
+      allow read: if activeUser();
+      allow write: if roleIs('super_admin') || roleIs('content_admin');
+    }
+
+    match /materials/{materialId} {
+      allow read: if activeUser() && (
+        roleIs('super_admin') ||
+        (resource.data.visibility == 'school' && userDoc().role != 'student') ||
+        (resource.data.classId == userDoc().classId &&
+         resource.data.sectionId == userDoc().sectionId)
+      );
+      allow create: if roleIs('super_admin') || roleIs('content_admin') ||
+        (roleIs('teacher_admin') &&
+         request.resource.data.createdBy == request.auth.uid);
+      allow update, delete: if roleIs('super_admin') ||
+        (resource.data.createdBy == request.auth.uid &&
+         (roleIs('teacher_admin') || roleIs('content_admin')));
+    }
+
+    match /homework/{homeworkId} {
+      allow read: if activeUser() && (
+        roleIs('super_admin') ||
+        (resource.data.classId == userDoc().classId &&
+         resource.data.sectionId == userDoc().sectionId)
+      );
+      allow create: if roleIs('super_admin') ||
+        (roleIs('teacher_admin') &&
+         request.resource.data.createdBy == request.auth.uid);
+      allow update, delete: if roleIs('super_admin') ||
+        (roleIs('teacher_admin') && resource.data.createdBy == request.auth.uid);
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if activeUser() && (
+        roleIs('super_admin') ||
+        resource.data.visibility == 'school' ||
+        (resource.data.classId == userDoc().classId &&
+         resource.data.sectionId == userDoc().sectionId)
+      );
+      allow create: if roleIs('super_admin') || roleIs('content_admin');
+      allow update, delete: if roleIs('super_admin') ||
+        (roleIs('content_admin') && resource.data.createdBy == request.auth.uid);
+    }
+
+    match /timetable/{entryId} {
+      allow read: if activeUser() && (
+        roleIs('super_admin') ||
+        (resource.data.classId == userDoc().classId &&
+         resource.data.sectionId == userDoc().sectionId)
+      );
+      allow write: if roleIs('super_admin') || roleIs('teacher_admin');
+    }
+
+    match /activity_logs/{logId} {
+      allow read: if roleIs('super_admin');
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
