@@ -26,6 +26,12 @@ service cloud.firestore {
         data.className == profile().className &&
         data.section == (profile().section == null ? '' : profile().section);
     }
+    function validAttachment(data) {
+      return !('attachment' in data) || data.attachment == null ||
+        (data.attachment.size <= 512000 &&
+         data.attachment.dataUrl is string &&
+         data.attachment.dataUrl.size() <= 700000);
+    }
 
     match /users/{uid} {
       allow create: if signedIn() && request.auth.uid == uid &&
@@ -72,8 +78,9 @@ service cloud.firestore {
     match /homework/{id} {
       allow read: if activeUser() &&
         (profile().role != 'student' || belongsToClass(resource.data));
-      allow create: if isTeacherOrAbove();
-      allow update, delete: if isTeacherOrAbove();
+      allow create: if isTeacherOrAbove() && validAttachment(request.resource.data);
+      allow update: if isTeacherOrAbove() && validAttachment(request.resource.data);
+      allow delete: if isTeacherOrAbove();
     }
     match /classwork/{id} {
       allow read: if activeUser() &&
