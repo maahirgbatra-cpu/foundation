@@ -85,8 +85,9 @@ service cloud.firestore {
     match /classwork/{id} {
       allow read: if activeUser() &&
         (profile().role != 'student' || belongsToClass(resource.data));
-      allow create: if isTeacherOrAbove();
-      allow update, delete: if isTeacherOrAbove();
+      allow create: if isTeacherOrAbove() && validAttachment(request.resource.data);
+      allow update: if isTeacherOrAbove() && validAttachment(request.resource.data);
+      allow delete: if isTeacherOrAbove();
     }
 
     match /announcements/{id} {
