@@ -137,7 +137,7 @@ export default function App() {
             page==="classes" ? <ComingSoon title="Classes & sections" description="Create classes, add sections and organise the school structure here."/> :
             page==="resources" ? <ComingSoon title="Learning resources" description="Upload and organise PDFs, notes and learning materials by class, section and subject."/> :
             page==="settings" ? <ComingSoon title="School settings" description="Configure the school name, academic year and basic preferences."/> :
-            <ComingSoon title={pageInfo[1]} description="This section will be added in the next development module."}/>}
+<ComingSoon title={pageInfo[1]} description="This section will be added in the next development module."/>}
         </div>
       </section>
     </main>;
