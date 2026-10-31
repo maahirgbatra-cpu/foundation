@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+ match /b/{bucket}/o {
+  function signedIn(){return request.auth != null;}
+  function admin(){return signedIn() && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'super_admin' && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.active == true;}
+  match /materials/{userId}/{fileName} {
+   allow read: if signedIn();
+   allow write: if admin() || (signedIn() && request.auth.uid == userId && request.resource.size < 20 * 1024 * 1024);
+  }
+ }
+}
