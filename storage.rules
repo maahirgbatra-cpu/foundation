@@ -1,11 +1,15 @@
 rules_version = '2';
 service firebase.storage {
  match /b/{bucket}/o {
-  function signedIn(){return request.auth != null;}
-  function admin(){return signedIn() && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'super_admin' && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.active == true;}
+  function signedIn(){ return request.auth != null; }
+  function active(){ return signedIn() && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.active == true; }
+  function admin(){ return active() && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'super_admin'; }
+  function contentAdmin(){ return active() && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'content_admin'; }
   match /materials/{userId}/{fileName} {
-   allow read: if signedIn();
-   allow write: if admin() || (signedIn() && request.auth.uid == userId && request.resource.size < 20 * 1024 * 1024);
+   // Files are private to the uploader and school administrators until class-aware download URLs are implemented.
+   allow read: if active() && (request.auth.uid == userId || admin() || contentAdmin());
+   allow create, update: if active() && (admin() || (request.auth.uid == userId && request.resource.size < 20 * 1024 * 1024));
+   allow delete: if active() && (admin() || request.auth.uid == userId);
   }
  }
 }
