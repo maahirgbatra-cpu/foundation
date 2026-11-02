@@ -172,6 +172,7 @@ service cloud.firestore {
         profile().role == 'student' &&
         request.resource.data.studentUid == request.auth.uid &&
         request.resource.data.testId is string &&
+        id == request.resource.data.testId + '_' + request.auth.uid &&
         request.resource.data.answers is list &&
         request.resource.data.totalMarks is number &&
         request.resource.data.score == null;
