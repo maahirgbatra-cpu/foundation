@@ -119,6 +119,30 @@ service cloud.firestore {
       allow delete: if isTeacherOrAbove();
     }
 
+    match /feeBills/{id} {
+      allow read: if activeUser() &&
+        (profile().role in ['super_admin', 'admin', 'teacher'] ||
+         (profile().role == 'student' &&
+          resource.data.studentUid == request.auth.uid));
+      allow create: if isTeacherOrAbove() &&
+        request.resource.data.studentUid is string &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.amount is number &&
+        request.resource.data.amount > 0;
+      allow update, delete: if isTeacherOrAbove();
+    }
+
+    match /feeReminders/{id} {
+      allow read: if activeUser() &&
+        (profile().role in ['super_admin', 'admin', 'teacher'] ||
+         (profile().role == 'student' &&
+          resource.data.studentUid == request.auth.uid));
+      allow create: if isTeacherOrAbove() &&
+        request.resource.data.studentUid is string &&
+        request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isTeacherOrAbove();
+    }
+
     match /announcements/{id} {
       allow read: if activeUser() &&
         (profile().role != 'student' ||
