@@ -159,6 +159,10 @@ service cloud.firestore {
       allow update, delete: if isTeacherOrAbove();
     }
 
+    match /testAnswerKeys/{id} {
+      allow read, write: if isTeacherOrAbove();
+    }
+
     match /testSubmissions/{id} {
       allow read: if activeUser() &&
         (profile().role in ['super_admin', 'admin', 'teacher'] ||
@@ -169,9 +173,16 @@ service cloud.firestore {
         request.resource.data.studentUid == request.auth.uid &&
         request.resource.data.testId is string &&
         request.resource.data.answers is list &&
+        request.resource.data.totalMarks is number &&
+        request.resource.data.score == null;
+      allow update: if isTeacherOrAbove() &&
+        request.resource.data.studentUid == resource.data.studentUid &&
+        request.resource.data.testId == resource.data.testId &&
+        request.resource.data.answers == resource.data.answers &&
         request.resource.data.score is number &&
-        request.resource.data.totalMarks is number;
-      allow update, delete: if isTeacherOrAbove();
+        request.resource.data.score >= 0 &&
+        request.resource.data.score <= resource.data.totalMarks;
+      allow delete: if isTeacherOrAbove();
     }
 
     match /announcements/{id} {
