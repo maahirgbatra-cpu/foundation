@@ -173,8 +173,13 @@ service cloud.firestore {
         request.resource.data.studentUid == request.auth.uid &&
         request.resource.data.testId is string &&
         id == request.resource.data.testId + '_' + request.auth.uid &&
+        exists(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)) &&
+        get(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)).data.published == true &&
+        get(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)).data.className == profile().className &&
+        get(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)).data.section == (profile().section == null ? '' : profile().section) &&
         request.resource.data.answers is list &&
-        request.resource.data.totalMarks is number &&
+        request.resource.data.answers.size() == get(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)).data.questions.size() &&
+        request.resource.data.totalMarks == get(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)).data.totalMarks &&
         request.resource.data.score == null;
       allow update: if isTeacherOrAbove() &&
         request.resource.data.studentUid == resource.data.studentUid &&
