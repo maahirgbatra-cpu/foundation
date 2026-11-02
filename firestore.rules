@@ -143,6 +143,37 @@ service cloud.firestore {
       allow update, delete: if isTeacherOrAbove();
     }
 
+    match /onlineTests/{id} {
+      allow read: if activeUser() &&
+        (profile().role in ['super_admin', 'admin', 'teacher'] ||
+         (profile().role == 'student' &&
+          resource.data.published == true &&
+          resource.data.className == profile().className &&
+          resource.data.section == (profile().section == null ? '' : profile().section)));
+      allow create: if isTeacherOrAbove() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.title is string &&
+        request.resource.data.className is string &&
+        request.resource.data.questions is list &&
+        request.resource.data.questions.size() > 0;
+      allow update, delete: if isTeacherOrAbove();
+    }
+
+    match /testSubmissions/{id} {
+      allow read: if activeUser() &&
+        (profile().role in ['super_admin', 'admin', 'teacher'] ||
+         (profile().role == 'student' &&
+          resource.data.studentUid == request.auth.uid));
+      allow create: if activeUser() &&
+        profile().role == 'student' &&
+        request.resource.data.studentUid == request.auth.uid &&
+        request.resource.data.testId is string &&
+        request.resource.data.answers is list &&
+        request.resource.data.score is number &&
+        request.resource.data.totalMarks is number;
+      allow update, delete: if isTeacherOrAbove();
+    }
+
     match /announcements/{id} {
       allow read: if activeUser() &&
         (profile().role != 'student' ||
