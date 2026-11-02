@@ -102,6 +102,23 @@ service cloud.firestore {
       allow delete: if isTeacherOrAbove();
     }
 
+    match /fees/{id} {
+      allow read: if activeUser() &&
+        (profile().role in ['super_admin', 'admin', 'teacher'] ||
+         (profile().role == 'student' && resource.data.studentUid == request.auth.uid));
+      allow create: if activeUser() && profile().role == 'student' &&
+        request.resource.data.studentUid == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.amount is number &&
+        request.resource.data.amount > 0 &&
+        request.resource.data.screenshot.dataUrl is string &&
+        request.resource.data.screenshot.size <= 512000;
+      allow update: if isTeacherOrAbove() &&
+        request.resource.data.studentUid == resource.data.studentUid &&
+        request.resource.data.status in ['approved', 'rejected'];
+      allow delete: if isTeacherOrAbove();
+    }
+
     match /announcements/{id} {
       allow read: if activeUser() &&
         (profile().role != 'student' ||
