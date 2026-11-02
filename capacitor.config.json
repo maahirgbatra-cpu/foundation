@@ -1,5 +1,9 @@
 {
   "appId": "com.foundationclasses.portal",
   "appName": "Foundation Classes",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "url": "https://foundation.maahir-g-batra.workers.dev/",
+    "cleartext": false
+  }
 }
