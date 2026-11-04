@@ -60,7 +60,13 @@ service cloud.firestore {
     match /students/{id} {
       allow read: if roleIn(['super_admin', 'admin', 'teacher', 'content_admin']) ||
         (activeUser() && resource.data.email == request.auth.token.email);
-      allow write: if roleIn(['super_admin', 'admin', 'teacher']);
+      allow create: if roleIn(['super_admin', 'admin', 'teacher']) ||
+        (signedIn() && request.auth.uid == id &&
+         request.resource.data.portalUid == request.auth.uid &&
+         request.resource.data.role == 'student' &&
+         request.resource.data.active == false &&
+         request.resource.data.email == request.auth.token.email);
+      allow update, delete: if roleIn(['super_admin', 'admin', 'teacher']);
     }
     match /subjects/{id} {
       allow read: if activeUser();
