@@ -191,6 +191,26 @@ service cloud.firestore {
       allow delete: if isTeacherOrAbove();
     }
 
+    // Attendance is restricted to teacher accounts only.
+    match /attendance/{recordId} {
+      allow read: if roleIn(['teacher']) &&
+        resource.data.teacherUid == request.auth.uid;
+      allow create: if roleIn(['teacher']) &&
+        request.resource.data.teacherUid == request.auth.uid &&
+        request.resource.data.studentUid is string &&
+        request.resource.data.className is string &&
+        request.resource.data.date is string &&
+        request.resource.data.status in ['present', 'absent', 'late'];
+      allow update: if roleIn(['teacher']) &&
+        resource.data.teacherUid == request.auth.uid &&
+        request.resource.data.teacherUid == request.auth.uid &&
+        request.resource.data.studentUid == resource.data.studentUid &&
+        request.resource.data.date == resource.data.date &&
+        request.resource.data.status in ['present', 'absent', 'late'];
+      allow delete: if roleIn(['teacher']) &&
+        resource.data.teacherUid == request.auth.uid;
+    }
+
     match /announcements/{id} {
       allow read: if activeUser() &&
         (profile().role != 'student' ||
