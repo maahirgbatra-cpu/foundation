@@ -212,24 +212,55 @@ service cloud.firestore {
     }
 
     // Feedback email queue. Install Firebase Trigger Email to process this collection.
-    match /mail/{mailId} {
+    // Feedback submissions are private to their owner and Super Admin.
+    match /feedback/{feedbackId} {
       allow create: if activeUser() &&
-        request.resource.data.keys().hasOnly(['to','message','senderUid','senderName','senderEmail','createdAt']) &&
-        request.resource.data.to == 'maahir.g.batra@gmail.com' &&
+        request.resource.data.keys().hasOnly([
+          'senderUid','senderName','senderEmail','senderRole',
+          'type','rating','message','status','reply','createdAt',
+          'repliedAt'
+        ]) &&
         request.resource.data.senderUid == request.auth.uid &&
         request.resource.data.senderName is string &&
         request.resource.data.senderName.size() <= 100 &&
         request.resource.data.senderEmail is string &&
         request.resource.data.senderEmail.size() <= 254 &&
-        request.resource.data.message is map &&
-        request.resource.data.message.keys().hasOnly(['subject','text']) &&
-        request.resource.data.message.subject is string &&
-        request.resource.data.message.subject.size() <= 160 &&
-        request.resource.data.message.text is string &&
-        request.resource.data.message.text.size() >= 10 &&
-        request.resource.data.message.text.size() <= 5000 &&
-        request.resource.data.createdAt == request.time;
-      allow read, update, delete: if false;
+        request.resource.data.senderRole == profile().role &&
+        request.resource.data.type in ['Suggestion','Problem','Question','Other'] &&
+        request.resource.data.rating is int &&
+        request.resource.data.rating >= 1 &&
+        request.resource.data.rating <= 5 &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() >= 10 &&
+        request.resource.data.message.size() <= 4000 &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.reply == '' &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.repliedAt == null;
+
+      allow read: if activeUser() &&
+        (
+          profile().role == 'super_admin' ||
+          resource.data.senderUid == request.auth.uid
+        );
+
+      allow update: if roleIn(['super_admin']) &&
+        request.resource.data.senderUid == resource.data.senderUid &&
+        request.resource.data.senderName == resource.data.senderName &&
+        request.resource.data.senderEmail == resource.data.senderEmail &&
+        request.resource.data.senderRole == resource.data.senderRole &&
+        request.resource.data.type == resource.data.type &&
+        request.resource.data.rating == resource.data.rating &&
+        request.resource.data.message == resource.data.message &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.reply is string &&
+        request.resource.data.reply.size() >= 2 &&
+        request.resource.data.reply.size() <= 3000 &&
+        request.resource.data.status == 'replied' &&
+        request.resource.data.repliedBy == request.auth.uid &&
+        request.resource.data.repliedAt == request.time;
+
+      allow delete: if roleIn(['super_admin']);
     }
 
     match /announcements/{id} {
