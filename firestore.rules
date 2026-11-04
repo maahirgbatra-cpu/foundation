@@ -211,6 +211,27 @@ service cloud.firestore {
         resource.data.teacherUid == request.auth.uid;
     }
 
+    // Feedback email queue. Install Firebase Trigger Email to process this collection.
+    match /mail/{mailId} {
+      allow create: if activeUser() &&
+        request.resource.data.keys().hasOnly(['to','message','senderUid','senderName','senderEmail','createdAt']) &&
+        request.resource.data.to == 'maahir.g.batra@gmail.com' &&
+        request.resource.data.senderUid == request.auth.uid &&
+        request.resource.data.senderName is string &&
+        request.resource.data.senderName.size() <= 100 &&
+        request.resource.data.senderEmail is string &&
+        request.resource.data.senderEmail.size() <= 254 &&
+        request.resource.data.message is map &&
+        request.resource.data.message.keys().hasOnly(['subject','text']) &&
+        request.resource.data.message.subject is string &&
+        request.resource.data.message.subject.size() <= 160 &&
+        request.resource.data.message.text is string &&
+        request.resource.data.message.text.size() >= 10 &&
+        request.resource.data.message.text.size() <= 5000 &&
+        request.resource.data.createdAt == request.time;
+      allow read, update, delete: if false;
+    }
+
     match /announcements/{id} {
       allow read: if activeUser() &&
         (profile().role != 'student' ||
