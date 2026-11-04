@@ -113,17 +113,21 @@ tr:hover td{background:#fcfcfa}
   <h1>Welcome back</h1><div class="muted">Sign in to your school workspace.</div>
   <form id="loginForm">
    <div class="field"><label>Email</label><input id="loginEmail" type="email" placeholder="admin@school.com" required></div>
+   <div class="field"><label>Class</label><input id="loginClass" type="text" placeholder="e.g. Class 9" required></div>
    <div class="field"><label>Password</label><input id="loginPassword" type="password" placeholder="Enter password" required></div>
    <button class="btn" type="submit">Sign in with email</button>
    <button class="btn ghost" id="forgotPassword" type="button" style="width:100%;margin-top:10px">Forgot password?</button>
   </form>
   <div style="border-top:1px solid var(--line);margin:20px 0 14px;padding-top:16px;text-align:center">
    <div style="font-weight:700;margin-bottom:8px">New student?</div>
-   <button class="btn secondary" id="showSignup" type="button" style="width:100%">Create a student account</button>
+   <button class="btn secondary" id="showSignup" type="button" style="width:100%">Sign up / Create account</button>
   </div>
   <div id="signupPanel" class="hidden">
    <form id="signupForm">
+    <h2 style="margin:0 0 12px">Student sign up</h2>
     <div class="field"><label>Full name</label><input id="signupName" required maxlength="100"></div>
+    <div class="field"><label>Admission number</label><input id="signupAdmissionNo" type="text" required maxlength="50" placeholder="Enter your admission number"></div>
+    <div class="field"><label>Class</label><input id="signupClass" type="text" required maxlength="50" placeholder="e.g. Class 9"></div>
     <div class="field"><label>Email</label><input id="signupEmail" type="email" required></div>
     <div class="field"><label>Password (at least 6 characters)</label><input id="signupPassword" type="password" minlength="6" required></div>
     <div class="field"><label>Confirm password</label><input id="signupConfirm" type="password" minlength="6" required></div>
@@ -184,21 +188,23 @@ function toast(s){const el=document.getElementById('toastRoot');el.innerHTML='<d
 function roleLabel(r){return ({super_admin:'Super Admin',admin:'Admin',teacher:'Teacher',student:'Student',content_admin:'Content Admin'})[r]||r}
 function canWrite(section){const r=current?.role;const rules={staff:['super_admin','admin'],classes:['super_admin','admin'],students:['super_admin','admin','teacher'],subjects:['super_admin','admin','content_admin'],resources:['super_admin','admin','teacher','content_admin'],homework:['super_admin','admin','teacher'],classwork:['super_admin','admin','teacher'],reportCards:['super_admin','admin','teacher'],fees:['super_admin','admin','teacher'],onlineTests:['super_admin','admin','teacher'],announcements:['super_admin','admin','teacher'],settings:['super_admin','admin']};return (rules[section]||[]).includes(r)}
 function canSee(page){if(current?.role==='student')return ['dashboard','resources','homework','announcements','reportCards','fees','onlineTests'].includes(page);return true}
-async function signIn(email,password){try{const credential=await auth.signInWithEmailAndPassword(email,password);const snap=await fs.collection('users').doc(credential.user.uid).get();if(!snap.exists)throw new Error('Your Firebase account has no Firestore users profile. Ask the administrator to create users/'+credential.user.uid);const profile={id:snap.id,...snap.data(),email:credential.user.email};if(profile.active!==true||!['super_admin','admin','teacher','student','content_admin'].includes(profile.role)){await auth.signOut();throw new Error('Your account is waiting for administrator approval or has been deactivated.')}current=profile;await loadCloudData(profile);showApp()}catch(e){toast(friendlyError(e));console.error(e)}}
+async function signIn(email,password,className){try{const credential=await auth.signInWithEmailAndPassword(email,password);const snap=await fs.collection('users').doc(credential.user.uid).get();if(!snap.exists)throw new Error('Your Firebase account has no Firestore users profile. Ask the administrator to create users/'+credential.user.uid);const profile={id:snap.id,...snap.data(),email:credential.user.email};if(profile.active!==true||!['super_admin','admin','teacher','student','content_admin'].includes(profile.role)){await auth.signOut();throw new Error('Your account is waiting for administrator approval or has been deactivated.')}if(profile.role==='student'&&String(profile.className||'').trim().toLowerCase()!==className.trim().toLowerCase()){await auth.signOut();throw new Error('The class does not match your registered student account.')}current=profile;await loadCloudData(profile);showApp()}catch(e){if(auth.currentUser)await auth.signOut().catch(()=>{});toast(friendlyError(e));console.error(e)}}
 function showApp(){document.getElementById('loginView').classList.add('hidden');document.getElementById('appView').classList.remove('hidden');document.getElementById('sideName').textContent=current.name||current.email;document.getElementById('sideRole').textContent=roleLabel(current.role);document.getElementById('sideAvatar').textContent=(current.name||current.email||'U')[0].toUpperCase();if(!history.state?.foundationApp)history.replaceState({foundationApp:true,page:'dashboard'},'');render()}
 async function logout(){cloudReady=false;current=null;await auth.signOut();document.getElementById('appView').classList.add('hidden');document.getElementById('loginView').classList.remove('hidden')}
-document.getElementById('loginForm').addEventListener('submit',e=>{e.preventDefault();signIn(document.getElementById('loginEmail').value.trim(),document.getElementById('loginPassword').value)});
+document.getElementById('loginForm').addEventListener('submit',e=>{e.preventDefault();const className=document.getElementById('loginClass').value.trim();if(!className)return toast('Enter your class');signIn(document.getElementById('loginEmail').value.trim(),document.getElementById('loginPassword').value,className)});
 document.getElementById('showSignup').onclick=()=>document.getElementById('signupPanel').classList.remove('hidden');
 document.getElementById('hideSignup').onclick=()=>document.getElementById('signupPanel').classList.add('hidden');
 document.getElementById('signupForm').addEventListener('submit',async e=>{
  e.preventDefault();
- const name=document.getElementById('signupName').value.trim(),email=document.getElementById('signupEmail').value.trim(),password=document.getElementById('signupPassword').value,confirmPassword=document.getElementById('signupConfirm').value;
+ const name=document.getElementById('signupName').value.trim(),admissionNo=document.getElementById('signupAdmissionNo').value.trim(),className=document.getElementById('signupClass').value.trim(),email=document.getElementById('signupEmail').value.trim(),password=document.getElementById('signupPassword').value,confirmPassword=document.getElementById('signupConfirm').value;
  if(password!==confirmPassword)return toast('Passwords do not match');
  if(name.length<2)return toast('Please enter your full name');
+ if(!admissionNo)return toast('Please enter your admission number');
+ if(!className)return toast('Please enter your class');
  try{
   isSigningUp=true;
   const cred=await auth.createUserWithEmailAndPassword(email,password);
-  const studentProfile={name,email:cred.user.email,role:'student',active:false,status:'pending',admissionNo:'Online registration',className:'Not assigned',section:'Not assigned',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+  const studentProfile={name,email:cred.user.email,role:'student',active:false,status:'pending',admissionNo,className,section:'',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
   await fs.collection('users').doc(cred.user.uid).set(studentProfile);
   await fs.collection('students').doc(cred.user.uid).set({...studentProfile,portalUid:cred.user.uid});
   await auth.signOut();
@@ -206,6 +212,7 @@ document.getElementById('signupForm').addEventListener('submit',async e=>{
   document.getElementById('signupForm').reset();
   document.getElementById('signupPanel').classList.add('hidden');
   document.getElementById('loginEmail').value=email;
+  document.getElementById('loginClass').value=className;
   toast('Account created. Wait for the administrator to activate it before signing in.');
  }catch(err){isSigningUp=false;console.error(err);toast(friendlyError(err))}
 });
