@@ -104,7 +104,20 @@ tr:hover td{background:#fcfcfa}
 .toast{border-radius:7px;box-shadow:0 3px 12px rgba(20,28,38,.16)}
 .notice{border-left:3px solid #b18a4b;background:#f8f7f2;border-radius:5px}
 @media(max-width:650px){.content{padding:17px 12px}.topbar{padding:0 13px}.login{border-radius:9px}}
-.stat-button{font:inherit;text-align:left;color:inherit;cursor:pointer;width:100%;position:relative;transition:transform .15s,box-shadow .15s}.stat-button:hover{transform:translateY(-2px);box-shadow:0 5px 16px rgba(20,35,50,.12)}.stat-button:focus-visible{outline:3px solid #3977a5;outline-offset:3px}.stat-button .k,.stat-button .v,.stat-button .s{display:block}.stat-hint{display:block;margin-top:8px;font-size:12px;font-weight:700;color:#315f7f}</style>
+.stat-button{font:inherit;text-align:left;color:inherit;cursor:pointer;width:100%;position:relative;transition:transform .15s,box-shadow .15s}.stat-button:hover{transform:translateY(-2px);box-shadow:0 5px 16px rgba(20,35,50,.12)}.stat-button:focus-visible{outline:3px solid #3977a5;outline-offset:3px}.stat-button .k,.stat-button .v,.stat-button .s{display:block}.stat-hint{display:block;margin-top:8px;font-size:12px;font-weight:700;color:#315f7f}
+/* Keep outlined action buttons outlined on hover/focus. */
+.btn.ghost:hover,
+.btn.ghost:focus-visible {
+  background: #edf3fa !important;
+  color: var(--primary) !important;
+  border-color: #cbd8e8 !important;
+  filter: none !important;
+}
+.btn.ghost:active {
+  background: #e3ecf6 !important;
+  color: var(--primary) !important;
+}
+</style>
 </head>
 <body>
 <div id="loginView" class="login-wrap">
