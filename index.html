@@ -117,6 +117,31 @@ tr:hover td{background:#fcfcfa}
   background: #e3ecf6 !important;
   color: var(--primary) !important;
 }
+
+/* Subjects workspace refresh */
+.subjects-overview{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;margin:4px 0 20px;padding:20px 22px;background:linear-gradient(120deg,#fff 0%,#f5f8fa 100%);border:1px solid var(--line);border-radius:16px;box-shadow:0 4px 16px rgba(30,43,56,.035)}
+.subjects-overview h2{font-size:17px;margin:0 0 4px;color:var(--ink)}
+.subjects-overview p{margin:0;color:var(--muted);font-size:13px}
+.subjects-count{min-width:92px;padding:10px 15px;border-radius:12px;background:#eaf0f4;color:var(--primary);text-align:center}
+.subjects-count strong{display:block;font-size:23px;line-height:1.2}
+.subjects-count span{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.subjects-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:15px 18px;border-bottom:1px solid var(--line)}
+.subjects-toolbar .toolbar{margin-left:auto}
+.subjects-list{display:grid;gap:10px;padding:16px}
+.subject-card{display:grid;grid-template-columns: minmax(190px,1.25fr) minmax(110px,.65fr) minmax(130px,.8fr) auto;align-items:center;gap:18px;padding:15px 17px;background:#fff;border:1px solid #e9edf0;border-radius:12px;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.subject-card:hover{border-color:#cbd8e2;box-shadow:0 6px 18px rgba(30,43,56,.06);transform:translateY(-1px)}
+.subject-identity{display:flex;align-items:center;gap:12px;min-width:0}
+.subject-avatar{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:12px;background:#edf2f5;color:var(--primary);font-size:16px;font-weight:800}
+.subject-name{font-weight:750;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.subject-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.subject-field-label{display:block;font-size:10px;font-weight:750;letter-spacing:.7px;text-transform:uppercase;color:#929ba4;margin-bottom:4px}
+.subject-field-value{font-size:13px;color:#3e4b57;font-weight:600;overflow-wrap:anywhere}
+.subject-actions{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.subjects-empty{padding:42px 20px;text-align:center;color:var(--muted)}
+.subjects-empty .empty-mark{width:48px;height:48px;margin:0 auto 12px;border-radius:14px;background:#edf2f5;color:var(--primary);display:grid;place-items:center;font-size:22px}
+@media(max-width:760px){.subjects-overview{padding:16px}.subject-card{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:13px}.subject-identity{grid-column:1/-1}.subject-actions{grid-column:1/-1;justify-content:flex-start;border-top:1px solid #edf0f2;padding-top:11px}.subjects-toolbar{align-items:stretch}.subjects-toolbar .toolbar{width:100%;margin:0}.subjects-toolbar .toolbar input{max-width:none;flex:1}.subjects-count{min-width:76px}}
+@media(max-width:420px){.subject-card{grid-template-columns:1fr}.subject-identity,.subject-actions{grid-column:auto}.subject-actions{flex-wrap:wrap}}
+
 </style>
 </head>
 <body>
@@ -260,6 +285,15 @@ function recordPage(type){const c=configs[type],arr=db[c.key];let source=arr;if(
 const headers=[...c.cols.map(k=>k==='active'?'Status':k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase())),canWrite(type)?'Actions':''].filter(Boolean);
 const rows=list.map(x=>`<tr>${c.cols.map(k=>`<td>${k==='role'?roleLabel(x[k]):k==='active'?`<span class="badge ${x[k]?'green':'red'}">${x[k]?'Active':'Inactive'}</span>`:k==='attachment'?(x.attachment?.dataUrl?`<a href="${x.attachment.dataUrl}" download="${esc(x.attachment.name||'attachment')}">${esc(x.attachment.name||'Download attachment')} ↓</a>`:'—'):esc(x[k]||'—')}</td>`).join('')}${canWrite(type)?`<td>${type==='students'&&x.portalUid&&!x.portalActive?`<button class="btn small" data-activate="${esc(x.portalUid)}">Approve account</button>`:actionCell(type,x)}</td>`:''}</tr>`).join('');
 const add=canWrite(type)?`<button class="btn" data-add="${type}">＋ Add ${type==='staff'?'staff member':type==='students'?'student':type==='classes'?'class':type==='subjects'?'subject':type==='homework'?'homework':type==='classwork'?'classwork (C.W.)':'announcement'}</button>`:'';
+if(type==='subjects'){
+ const subjectCards=list.map(x=>`<article class="subject-card">
+  <div class="subject-identity"><div class="subject-avatar">${esc((x.name||'S').trim().charAt(0).toUpperCase())}</div><div style="min-width:0"><div class="subject-name">${esc(x.name||'Untitled subject')}</div><div class="subject-meta">${x.code?'${esc(x.code)}':'Subject record'}</div></div></div>
+  <div><span class="subject-field-label">Class</span><div class="subject-field-value">${esc(x.className||'Not assigned')}</div></div>
+  <div><span class="subject-field-label">Assigned teacher</span><div class="subject-field-value">${esc(x.teacher||'Not assigned')}</div></div>
+  ${canWrite(type)?`<div class="subject-actions">${actionCell(type,x)}</div>`:''}
+ </article>`).join('');
+ return head(c.title,c.desc,add)+`<div class="subjects-overview"><div><h2>Academic subjects</h2><p>Keep subjects, class assignments, and teaching responsibilities organized in one place.</p></div><div class="subjects-count"><strong>${list.length}</strong><span>Subjects</span></div></div><section class="panel"><div class="subjects-toolbar"><div><strong>${list.length} subject${list.length===1?'':'s'}</strong><div class="subject-meta">Manage your school's subject list</div></div>${toolbar('Search subjects...')}</div><div class="subjects-list">${subjectCards||`<div class="subjects-empty"><div class="empty-mark">▣</div><strong>No subjects found</strong><p>Add a subject or change your search to see results.</p>${canWrite(type)?`<button class="btn" data-add="subjects">＋ Add subject</button>`:''}</div>`}</div></section>`;
+}
 return head(c.title,c.desc,add)+`<div class="panel"><div class="panel-head"><h3>${list.length} record${list.length===1?'':'s'}</h3>${toolbar()}</div>${table(headers,rows)}</div>`}
 
 function fees(){
