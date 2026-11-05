@@ -247,7 +247,7 @@ async function loadCloudData(profile){const role=profile.role,hasClass=typeof pr
   (db.users||[]).filter(u=>u.active===true).forEach(u=>{if(u.role==='student'){const prev=directoryMap.get(u.id)||{};directoryMap.set(u.id,{...prev,id:u.id,name:u.name||prev.name||'Student',role:'student',className:u.className||prev.className||'',section:u.section||prev.section||'',admissionNo:u.admissionNo||prev.admissionNo||'',subjects:[]})}else if(u.role==='teacher'){directoryMap.set(u.id,{id:u.id,name:u.name||'Teacher',role:'teacher',className:u.className||'',section:u.section||'',admissionNo:'',subjects:[]})}});
   (db.subjects||[]).forEach(sub=>{const teacher=String(sub.teacher||'').trim();if(!teacher)return;for(const item of directoryMap.values())if(item.role==='teacher'&&(item.name.toLowerCase()===teacher.toLowerCase()||item.id===teacher)){item.subjects.push((sub.name||'Subject')+(sub.className?' · '+sub.className:''))}});
   db.directory=[...directoryMap.values()];
-  try{const batch=fs.batch();db.directory.forEach(item=>batch.set(fs.collection('directory').doc(item.id),item,{merge:true}));if(db.directory.length)await batch.commit()}catch(err){console.warn('Directory sync skipped',err);cloudIssues.directory=friendlyError(err)}
+  if(role==='super_admin'||role==='admin'){try{const batch=fs.batch();db.directory.forEach(item=>batch.set(fs.collection('directory').doc(item.id),item,{merge:true}));if(db.directory.length)await batch.commit()}catch(err){console.warn('Directory sync skipped',err);cloudIssues.directory=friendlyError(err)}}
  }else{db.directory=values.find(x=>x[0]==='directory')?.[1]||[]}
  localStorage.setItem(KEY,JSON.stringify(db));cloudReady=true}
 function id(){return 'id_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
