@@ -276,6 +276,12 @@ service cloud.firestore {
       allow create, update, delete: if roleIn(['super_admin', 'admin', 'teacher']);
     }
 
+    // Safe school-wide directory. Only non-sensitive profile fields are stored here.
+    match /directory/{personId} {
+      allow read: if activeUser();
+      allow create, update, delete: if roleIn(['super_admin', 'admin']);
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
