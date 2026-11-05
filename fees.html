@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Foundation Classes — School Portal</title>
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body data-page="fees">
+<div id="loginView" class="login-wrap">
+ <div class="login">
+  <div class="brand"><div class="logo">F</div> Foundation Classes</div>
+  <h1>Welcome back</h1><div class="muted">Sign in to your school workspace.</div>
+  <form id="loginForm">
+   <div class="field"><label>Email</label><input id="loginEmail" type="email" placeholder="admin@school.com" required></div>
+   <div class="field"><label>Password</label><input id="loginPassword" type="password" placeholder="Enter password" required></div>
+   <button class="btn" type="submit">Sign in with email</button>
+   <button class="btn ghost" id="forgotPassword" type="button" style="width:100%;margin-top:10px">Forgot password?</button>
+  </form>
+  <div style="border-top:1px solid var(--line);margin:20px 0 14px;padding-top:16px;text-align:center">
+   <div style="font-weight:700;margin-bottom:8px">New student?</div>
+   <button class="btn secondary" id="showSignup" type="button" style="width:100%">Sign up / Create account</button>
+  </div>
+  <div id="signupPanel" class="hidden">
+   <form id="signupForm">
+    <h2 style="margin:0 0 12px">Student sign up</h2>
+    <div class="field"><label>Full name</label><input id="signupName" required maxlength="100"></div>
+    <div class="field"><label>Admission number</label><input id="signupAdmissionNo" type="text" required maxlength="50" placeholder="Enter your admission number"></div>
+    <div class="field"><label>Class</label><input id="signupClass" type="text" required maxlength="50" placeholder="e.g. Class 9"></div>
+    <div class="field"><label>Email</label><input id="signupEmail" type="email" required></div>
+    <div class="field"><label>Password (at least 6 characters)</label><input id="signupPassword" type="password" minlength="6" required></div>
+    <div class="field"><label>Confirm password</label><input id="signupConfirm" type="password" minlength="6" required></div>
+    <button class="btn" type="submit">Create student account</button>
+    <button class="btn ghost" id="hideSignup" type="button" style="width:100%;margin-top:8px">Back to sign in</button>
+   </form>
+   <p class="hint">New accounts are created with the student role. Sign in using your email and password.</p>
+  </div>
+  <div class="hint">Sign in with your Firebase email and password. Use your registered Firebase email and password to sign in.</div>
+ </div>
+</div>
+<div id="appView" class="app hidden">
+ <aside class="sidebar" id="sidebar">
+  <div class="side-brand"><div class="brand"><div class="logo">F</div> Foundation Classes</div></div>
+  <div class="nav-label">WORKSPACE</div>
+  <nav class="nav" id="nav">
+   <button data-page="dashboard" class="active"><span class="ico">▦</span>Dashboard</button>
+   <button data-page="profile"><span class="ico">♙</span>My profile</button>
+   <button data-page="feedback"><span class="ico">✉</span>Feedback</button>
+   <button data-page="staff"><span class="ico">♙</span>Staff accounts</button>
+   <button data-page="classes"><span class="ico">▤</span>Classes & sections</button>
+   <button data-page="students"><span class="ico">♧</span>Students</button>
+   <button data-page="directory"><span class="ico">◎</span>Class directory</button>
+   <button data-page="attendance"><span class="ico">✓</span>Attendance</button>
+   <button data-page="subjects"><span class="ico">▣</span>Subjects</button>
+   <button data-page="resources"><span class="ico">▧</span>Learning resources</button>
+   <button data-page="homework"><span class="ico">✎</span>Homework</button>
+   <button data-page="classwork"><span class="ico">▧</span>Classwork (C.W.)</button>
+   <button data-page="reportCards"><span class="ico">▤</span>Report cards</button>
+   <button data-page="fees"><span class="ico">₹</span>Fee payments</button>
+   <button data-page="onlineTests"><span class="ico">✓</span>Online assignments & tests</button>
+   <button data-page="announcements"><span class="ico">◉</span>Announcements</button>
+   <button data-page="settings"><span class="ico">⚙</span>School settings</button>
+  </nav>
+  <div class="side-bottom"><div class="user-mini"><div class="avatar" id="sideAvatar">A</div><div><strong id="sideName">Administrator</strong><small id="sideRole">Super Admin</small></div></div></div>
+ </aside>
+ <main class="main">
+  <header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="btn secondary mobile-menu" id="menuBtn">☰</button><h2 id="topTitle">Dashboard</h2></div><div class="top-actions"><span class="badge green" id="connectionBadge">Firebase connected</span><button class="btn secondary small" id="logoutBtn">Sign out</button></div></header>
+  <div class="content" id="pageContent"></div>
+ </main>
+</div>
+<div id="modalRoot"></div><div id="toastRoot"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="/assets/app.js" defer></script>
+</html>
