@@ -287,7 +287,7 @@ const rows=list.map(x=>`<tr>${c.cols.map(k=>`<td>${k==='role'?roleLabel(x[k]):k=
 const add=canWrite(type)?`<button class="btn" data-add="${type}">＋ Add ${type==='staff'?'staff member':type==='students'?'student':type==='classes'?'class':type==='subjects'?'subject':type==='homework'?'homework':type==='classwork'?'classwork (C.W.)':'announcement'}</button>`:'';
 if(type==='subjects'){
  const subjectCards=list.map(x=>`<article class="subject-card">
-  <div class="subject-identity"><div class="subject-avatar">${esc((x.name||'S').trim().charAt(0).toUpperCase())}</div><div style="min-width:0"><div class="subject-name">${esc(x.name||'Untitled subject')}</div><div class="subject-meta">${x.code?'${esc(x.code)}':'Subject record'}</div></div></div>
+  <div class="subject-identity"><div class="subject-avatar">${esc((x.name||'S').trim().charAt(0).toUpperCase())}</div><div style="min-width:0"><div class="subject-name">${esc(x.name||'Untitled subject')}</div><div class="subject-meta">${x.code?esc(x.code):'Subject record'}</div></div></div>
   <div><span class="subject-field-label">Class</span><div class="subject-field-value">${esc(x.className||'Not assigned')}</div></div>
   <div><span class="subject-field-label">Assigned teacher</span><div class="subject-field-value">${esc(x.teacher||'Not assigned')}</div></div>
   ${canWrite(type)?`<div class="subject-actions">${actionCell(type,x)}</div>`:''}
