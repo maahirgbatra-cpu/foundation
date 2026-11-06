@@ -44,7 +44,8 @@ service cloud.firestore {
         (signedIn() && request.auth.uid == uid &&
          request.resource.data.role == resource.data.role &&
          request.resource.data.active == resource.data.active &&
-         request.resource.data.email == resource.data.email);
+         request.resource.data.email == resource.data.email &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt']));
       allow delete: if isAdmin();
     }
 
