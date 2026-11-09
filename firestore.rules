@@ -11,7 +11,7 @@ service cloud.firestore {
   function manager(){return superAdmin() || role(['principal','admin']);}
   function staff(){return manager() || role(['teacher','content_admin']);}
   function schoolOk(d){return superAdmin() || (active() && schoolActive(d.schoolId) && d.schoolId == p().schoolId);}
-  function validSchool(d){return d.schoolId is string && (superAdmin() || (active() && schoolActive(d.schoolId) && d.schoolId == p().schoolId));}
+  function validSchool(d){return d.schoolId is string && (superAdmin() || (hasProfile() && schoolActive(d.schoolId) && d.schoolId == p().schoolId));}
   function sameSchoolOnUpdate(){return request.resource.data.schoolId == resource.data.schoolId;}
   function classMatch(d){return d.className == p().className && d.section == (p().section == null ? '' : p().section);}
   function validTestSubmission(d){return active() && p().role == 'student' && d.studentUid == request.auth.uid && d.score == null && d.testId is string && exists(/databases/$(database)/documents/onlineTests/$(d.testId)) && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.schoolId == d.schoolId && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.published == true && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.className == p().className && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.section == (p().section == null ? '' : p().section);}
