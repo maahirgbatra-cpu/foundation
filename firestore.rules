@@ -7,27 +7,27 @@ service cloud.firestore {
   function p(){return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;}
   function active(){return superAdmin() || (hasProfile() && p().active == true);}
   function role(r){return active() && (superAdmin() || p().role in r);}
-  function manager(){return superAdmin() || role(['principal']);}
+  function manager(){return superAdmin() || role(['principal','admin']);}
   function staff(){return manager() || role(['teacher','content_admin']);}
   function schoolOk(d){return superAdmin() || (active() && d.schoolId == p().schoolId);}
-  function validSchool(d){return d.schoolId is string && exists(/databases/$(database)/documents/schools/$(d.schoolId)) && (superAdmin() || d.schoolId == p().schoolId);}
+  function validSchool(d){return d.schoolId is string && exists(/databases/$(database)/documents/schools/$(d.schoolId)) && (superAdmin() || (hasProfile() && d.schoolId == p().schoolId));}
   function sameSchoolOnUpdate(){return request.resource.data.schoolId == resource.data.schoolId;}
   function classMatch(d){return d.className == p().className && d.section == (p().section == null ? '' : p().section);}
   function attachmentOk(d){return !('attachment' in d) || d.attachment == null || (d.attachment.size <= 512000 && d.attachment.dataUrl is string && d.attachment.dataUrl.size() <= 700000);}
   match /schools/{id}{
-   allow read: if signedIn() && resource.data.active == true;
+   allow read: if superAdmin() || (signedIn() && resource.data.active == true);
    allow create, update, delete: if superAdmin();
   }
   match /users/{uid}{
-   allow read: if superAdmin() || (active() && (request.auth.uid == uid || (role(['principal']) && resource.data.schoolId == p().schoolId)));
+   allow read: if superAdmin() || (signedIn() && request.auth.uid == uid) || (active() && ((role(['principal','admin']) || role(['teacher','content_admin'])) && resource.data.schoolId == p().schoolId));
    allow create: if signedIn() && request.auth.uid == uid && request.resource.data.role == 'student' && request.resource.data.active == false && request.resource.data.email == request.auth.token.email && validSchool(request.resource.data) && get(/databases/$(database)/documents/schools/$(request.resource.data.schoolId)).data.active == true;
-   allow update: if superAdmin() || (role(['principal']) && resource.data.schoolId == p().schoolId && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.role in ['student','teacher','content_admin']) || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active && request.resource.data.email == resource.data.email && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']));
+   allow update: if superAdmin() || (role(['principal','admin']) && resource.data.schoolId == p().schoolId && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.role in ['student','teacher','content_admin']) || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active && request.resource.data.email == resource.data.email && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']));
    allow delete: if superAdmin() || (role(['principal']) && resource.data.schoolId == p().schoolId && resource.data.role != 'principal' && resource.data.role != 'super_admin');
   }
   match /schoolSettings/{id}{
    allow read: if schoolOk(resource.data);
    allow create: if manager() && validSchool(request.resource.data);
-   allow update: if superAdmin() || (role(['principal']) && schoolOk(resource.data) && sameSchoolOnUpdate() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['logo','logoUrl','schoolLogo']));
+   allow update: if superAdmin() || (role(['principal','admin']) && schoolOk(resource.data) && sameSchoolOnUpdate() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['logo','logoUrl','schoolLogo']));
    allow delete: if superAdmin();
   }
   match /{col}/{id}{
