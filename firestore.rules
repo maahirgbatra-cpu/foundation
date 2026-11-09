@@ -24,7 +24,12 @@ service cloud.firestore {
    allow update: if superAdmin() || (role(['principal']) && resource.data.schoolId == p().schoolId && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.role in ['student','teacher','content_admin']) || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active && request.resource.data.email == resource.data.email && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']));
    allow delete: if superAdmin() || (role(['principal']) && resource.data.schoolId == p().schoolId && resource.data.role != 'principal' && resource.data.role != 'super_admin');
   }
-  match /schoolSettings/{id}{allow read: if schoolOk(resource.data); allow create, update, delete: if superAdmin();}
+  match /schoolSettings/{id}{
+   allow read: if schoolOk(resource.data);
+   allow create: if manager() && validSchool(request.resource.data);
+   allow update: if superAdmin() || (role(['principal']) && schoolOk(resource.data) && sameSchoolOnUpdate() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['logo','logoUrl','schoolLogo']));
+   allow delete: if superAdmin();
+  }
   match /{col}/{id}{
    allow read: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && schoolOk(resource.data) &&
     (col != 'testAnswerKeys' || staff()) &&
