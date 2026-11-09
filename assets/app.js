@@ -145,7 +145,7 @@ async function sendFeeBill(e){
  try{
   let billFile=null;const file=fd.get('billFile');
   if(file&&file.size){if(file.size>400*1024)return toast('Bill attachment must be 400 KB or smaller');if(!file.type.startsWith('image/')&&file.type!=='application/pdf')return toast('Attach an image or PDF');billFile={name:file.name,type:file.type,size:file.size,dataUrl:await readFile(file)}}
-  const doc={studentUid:student.id,studentName:student.name||student.email,studentEmail:student.email,title:String(fd.get('title')).trim(),amount,period:String(fd.get('period')).trim(),dueDate:String(fd.get('dueDate')),description:String(fd.get('description')||'').trim(),billFile,status:'due',createdBy:current.id,createdByName:current.name||current.email,createdAt:new Date().toISOString()};
+  const doc={schoolId:activeSchoolId,studentUid:student.id,studentName:student.name||student.email,studentEmail:student.email,title:String(fd.get('title')).trim(),amount,period:String(fd.get('period')).trim(),dueDate:String(fd.get('dueDate')),description:String(fd.get('description')||'').trim(),billFile,status:'due',createdBy:current.id,createdByName:current.name||current.email,createdAt:new Date().toISOString()};
   const ref=await fs.collection('feeBills').add(doc);db.feeBills.unshift({id:ref.id,...doc});render();toast('Fee bill sent to '+(student.name||student.email));
  }catch(err){console.error(err);toast('Could not send bill: '+friendlyError(err))}
 }
