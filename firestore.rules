@@ -1,290 +1,57 @@
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
-    function profile() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-    function activeUser() {
-      return signedIn() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        profile().active == true;
-    }
-    function roleIn(roles) {
-      return activeUser() && profile().role in roles;
-    }
-    function isAdmin() {
-      return roleIn(['super_admin', 'admin']);
-    }
-    function isTeacherOrAbove() {
-      return roleIn(['super_admin', 'admin', 'teacher']);
-    }
-    function belongsToClass(data) {
-      return activeUser() &&
-        data.className == profile().className &&
-        data.section == (profile().section == null ? '' : profile().section);
-    }
-    function validAttachment(data) {
-      return !('attachment' in data) || data.attachment == null ||
-        (data.attachment.size <= 512000 &&
-         data.attachment.dataUrl is string &&
-         data.attachment.dataUrl.size() <= 700000);
-    }
-
-    match /users/{uid} {
-      allow create: if signedIn() && request.auth.uid == uid &&
-        request.resource.data.role == 'student' &&
-        request.resource.data.active == false &&
-        request.resource.data.email == request.auth.token.email;
-      allow read: if signedIn() &&
-        (request.auth.uid == uid || roleIn(['super_admin', 'admin', 'teacher', 'content_admin']));
-      allow update: if isAdmin() ||
-        (signedIn() && request.auth.uid == uid &&
-         request.resource.data.role == resource.data.role &&
-         request.resource.data.active == resource.data.active &&
-         request.resource.data.email == resource.data.email &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt']));
-      allow delete: if isAdmin();
-    }
-
-    match /schoolSettings/{settingId} {
-      allow read: if activeUser();
-      allow write: if isAdmin();
-    }
-
-    match /classes/{id} {
-      allow read: if activeUser();
-      allow write: if isAdmin();
-    }
-    match /students/{id} {
-      allow read: if roleIn(['super_admin', 'admin', 'teacher', 'content_admin']) ||
-        (activeUser() && resource.data.email == request.auth.token.email);
-      allow create: if roleIn(['super_admin', 'admin', 'teacher']) ||
-        (signedIn() && request.auth.uid == id &&
-         request.resource.data.portalUid == request.auth.uid &&
-         request.resource.data.role == 'student' &&
-         request.resource.data.active == false &&
-         request.resource.data.email == request.auth.token.email);
-      allow update, delete: if roleIn(['super_admin', 'admin', 'teacher']);
-    }
-    match /subjects/{id} {
-      allow read: if activeUser();
-      allow write: if roleIn(['super_admin', 'admin', 'teacher', 'content_admin']);
-    }
-    match /resources/{id} {
-      allow read: if activeUser() &&
-        (profile().role != 'student' ||
-         resource.data.visibility == 'School' ||
-         (resource.data.className == profile().className &&
-          resource.data.section == (profile().section == null ? '' : profile().section)));
-      allow create, update, delete: if roleIn(['super_admin', 'admin', 'teacher', 'content_admin']);
-    }
-
-    match /homework/{id} {
-      allow read: if activeUser() &&
-        (profile().role != 'student' || belongsToClass(resource.data));
-      allow create: if isTeacherOrAbove() && validAttachment(request.resource.data);
-      allow update: if isTeacherOrAbove() && validAttachment(request.resource.data);
-      allow delete: if isTeacherOrAbove();
-    }
-    match /classwork/{id} {
-      allow read: if activeUser() &&
-        (profile().role != 'student' || belongsToClass(resource.data));
-      allow create: if isTeacherOrAbove() && validAttachment(request.resource.data);
-      allow update: if isTeacherOrAbove() && validAttachment(request.resource.data);
-      allow delete: if isTeacherOrAbove();
-    }
-
-    match /reportCards/{id} {
-      allow read: if activeUser() &&
-        (profile().role in ['super_admin', 'admin', 'teacher'] ||
-         (profile().role == 'student' && resource.data.studentUid == request.auth.uid));
-      allow create: if isTeacherOrAbove() &&
-        request.resource.data.studentUid is string &&
-        request.resource.data.studentName is string;
-      allow update: if isTeacherOrAbove() &&
-        request.resource.data.studentUid == resource.data.studentUid;
-      allow delete: if isTeacherOrAbove();
-    }
-
-    match /fees/{id} {
-      allow read: if activeUser() &&
-        (profile().role in ['super_admin', 'admin', 'teacher'] ||
-         (profile().role == 'student' && resource.data.studentUid == request.auth.uid));
-      allow create: if activeUser() && profile().role == 'student' &&
-        request.resource.data.studentUid == request.auth.uid &&
-        request.resource.data.status == 'pending' &&
-        request.resource.data.amount is number &&
-        request.resource.data.amount > 0 &&
-        request.resource.data.screenshot.dataUrl is string &&
-        request.resource.data.screenshot.size <= 512000;
-      allow update: if isTeacherOrAbove() &&
-        request.resource.data.studentUid == resource.data.studentUid &&
-        request.resource.data.status in ['approved', 'rejected'];
-      allow delete: if isTeacherOrAbove();
-    }
-
-    match /feeBills/{id} {
-      allow read: if activeUser() &&
-        (profile().role in ['super_admin', 'admin', 'teacher'] ||
-         (profile().role == 'student' &&
-          resource.data.studentUid == request.auth.uid));
-      allow create: if isTeacherOrAbove() &&
-        request.resource.data.studentUid is string &&
-        request.resource.data.createdBy == request.auth.uid &&
-        request.resource.data.amount is number &&
-        request.resource.data.amount > 0;
-      allow update, delete: if isTeacherOrAbove();
-    }
-
-    match /feeReminders/{id} {
-      allow read: if activeUser() &&
-        (profile().role in ['super_admin', 'admin', 'teacher'] ||
-         (profile().role == 'student' &&
-          resource.data.studentUid == request.auth.uid));
-      allow create: if isTeacherOrAbove() &&
-        request.resource.data.studentUid is string &&
-        request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if isTeacherOrAbove();
-    }
-
-    match /onlineTests/{id} {
-      allow read: if activeUser() &&
-        (profile().role in ['super_admin', 'admin', 'teacher'] ||
-         (profile().role == 'student' &&
-          resource.data.published == true &&
-          resource.data.className == profile().className &&
-          resource.data.section == (profile().section == null ? '' : profile().section)));
-      allow create: if isTeacherOrAbove() &&
-        request.resource.data.createdBy == request.auth.uid &&
-        request.resource.data.title is string &&
-        request.resource.data.className is string &&
-        request.resource.data.questions is list &&
-        request.resource.data.questions.size() > 0;
-      allow update, delete: if isTeacherOrAbove();
-    }
-
-    match /testAnswerKeys/{id} {
-      allow read, write: if isTeacherOrAbove();
-    }
-
-    match /testSubmissions/{id} {
-      allow read: if activeUser() &&
-        (profile().role in ['super_admin', 'admin', 'teacher'] ||
-         (profile().role == 'student' &&
-          resource.data.studentUid == request.auth.uid));
-      allow create: if activeUser() &&
-        profile().role == 'student' &&
-        request.resource.data.studentUid == request.auth.uid &&
-        request.resource.data.testId is string &&
-        id == request.resource.data.testId + '_' + request.auth.uid &&
-        exists(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)) &&
-        get(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)).data.published == true &&
-        get(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)).data.className == profile().className &&
-        get(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)).data.section == (profile().section == null ? '' : profile().section) &&
-        request.resource.data.answers is list &&
-        request.resource.data.answers.size() == get(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)).data.questions.size() &&
-        request.resource.data.totalMarks == get(/databases/$(database)/documents/onlineTests/$(request.resource.data.testId)).data.totalMarks &&
-        request.resource.data.score == null;
-      allow update: if isTeacherOrAbove() &&
-        request.resource.data.studentUid == resource.data.studentUid &&
-        request.resource.data.testId == resource.data.testId &&
-        request.resource.data.answers == resource.data.answers &&
-        request.resource.data.score is number &&
-        request.resource.data.score >= 0 &&
-        request.resource.data.score <= resource.data.totalMarks;
-      allow delete: if isTeacherOrAbove();
-    }
-
-    // Attendance is restricted to teacher accounts only.
-    match /attendance/{recordId} {
-      allow read: if roleIn(['teacher']) &&
-        resource.data.teacherUid == request.auth.uid;
-      allow create: if roleIn(['teacher']) &&
-        request.resource.data.teacherUid == request.auth.uid &&
-        request.resource.data.studentUid is string &&
-        request.resource.data.className is string &&
-        request.resource.data.date is string &&
-        request.resource.data.status in ['present', 'absent', 'late'];
-      allow update: if roleIn(['teacher']) &&
-        resource.data.teacherUid == request.auth.uid &&
-        request.resource.data.teacherUid == request.auth.uid &&
-        request.resource.data.studentUid == resource.data.studentUid &&
-        request.resource.data.date == resource.data.date &&
-        request.resource.data.status in ['present', 'absent', 'late'];
-      allow delete: if roleIn(['teacher']) &&
-        resource.data.teacherUid == request.auth.uid;
-    }
-
-    // Feedback email queue. Install Firebase Trigger Email to process this collection.
-    // Feedback submissions are private to their owner and Super Admin.
-    match /feedback/{feedbackId} {
-      allow create: if activeUser() &&
-        request.resource.data.keys().hasOnly([
-          'senderUid','senderName','senderEmail','senderRole',
-          'type','rating','message','status','reply','createdAt',
-          'repliedAt'
-        ]) &&
-        request.resource.data.senderUid == request.auth.uid &&
-        request.resource.data.senderName is string &&
-        request.resource.data.senderName.size() <= 100 &&
-        request.resource.data.senderEmail is string &&
-        request.resource.data.senderEmail.size() <= 254 &&
-        request.resource.data.senderRole == profile().role &&
-        request.resource.data.type in ['Suggestion','Problem','Question','Other'] &&
-        request.resource.data.rating is int &&
-        request.resource.data.rating >= 1 &&
-        request.resource.data.rating <= 5 &&
-        request.resource.data.message is string &&
-        request.resource.data.message.size() >= 10 &&
-        request.resource.data.message.size() <= 4000 &&
-        request.resource.data.status == 'open' &&
-        request.resource.data.reply == '' &&
-        request.resource.data.createdAt == request.time &&
-        request.resource.data.repliedAt == null;
-
-      allow read: if activeUser() &&
-        (
-          profile().role == 'super_admin' ||
-          resource.data.senderUid == request.auth.uid
-        );
-
-      allow update: if roleIn(['super_admin']) &&
-        request.resource.data.senderUid == resource.data.senderUid &&
-        request.resource.data.senderName == resource.data.senderName &&
-        request.resource.data.senderEmail == resource.data.senderEmail &&
-        request.resource.data.senderRole == resource.data.senderRole &&
-        request.resource.data.type == resource.data.type &&
-        request.resource.data.rating == resource.data.rating &&
-        request.resource.data.message == resource.data.message &&
-        request.resource.data.createdAt == resource.data.createdAt &&
-        request.resource.data.reply is string &&
-        request.resource.data.reply.size() >= 2 &&
-        request.resource.data.reply.size() <= 3000 &&
-        request.resource.data.status == 'replied' &&
-        request.resource.data.repliedBy == request.auth.uid &&
-        request.resource.data.repliedAt == request.time;
-
-      allow delete: if roleIn(['super_admin']);
-    }
-
-    match /announcements/{id} {
-      allow read: if activeUser() &&
-        (profile().role != 'student' ||
-         resource.data.audience in ['Everyone', 'Students']);
-      allow create, update, delete: if roleIn(['super_admin', 'admin', 'teacher']);
-    }
-
-    // Safe school-wide directory. Only non-sensitive profile fields are stored here.
-    match /directory/{personId} {
-      allow read: if activeUser();
-      allow create, update, delete: if roleIn(['super_admin', 'admin']);
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
-    }
+ match /databases/{database}/documents {
+  function signedIn(){return request.auth != null;}
+  function superAdmin(){return signedIn() && request.auth.uid == 'Y4YUHogoKoVo4bGGe7wOdWUZe5I2';}
+  function hasProfile(){return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));}
+  function p(){return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;}
+  function active(){return superAdmin() || (hasProfile() && p().active == true);}
+  function role(r){return active() && (superAdmin() || p().role in r);}
+  function manager(){return superAdmin() || role(['principal']);}
+  function staff(){return manager() || role(['teacher','content_admin']);}
+  function schoolOk(d){return superAdmin() || (active() && d.schoolId == p().schoolId);}
+  function validSchool(d){return d.schoolId is string && exists(/databases/$(database)/documents/schools/$(d.schoolId)) && (superAdmin() || d.schoolId == p().schoolId);}
+  function sameSchoolOnUpdate(){return request.resource.data.schoolId == resource.data.schoolId;}
+  function classMatch(d){return d.className == p().className && d.section == (p().section == null ? '' : p().section);}
+  function attachmentOk(d){return !('attachment' in d) || d.attachment == null || (d.attachment.size <= 512000 && d.attachment.dataUrl is string && d.attachment.dataUrl.size() <= 700000);}
+  match /schools/{id}{
+   allow read: if signedIn() && resource.data.active == true;
+   allow create, update, delete: if superAdmin();
   }
+  match /users/{uid}{
+   allow read: if superAdmin() || (active() && (request.auth.uid == uid || (role(['principal']) && resource.data.schoolId == p().schoolId)));
+   allow create: if signedIn() && request.auth.uid == uid && request.resource.data.role == 'student' && request.resource.data.active == false && request.resource.data.email == request.auth.token.email && validSchool(request.resource.data) && get(/databases/$(database)/documents/schools/$(request.resource.data.schoolId)).data.active == true;
+   allow update: if superAdmin() || (role(['principal']) && resource.data.schoolId == p().schoolId && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.role in ['student','teacher','content_admin']) || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active && request.resource.data.email == resource.data.email && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']));
+   allow delete: if superAdmin() || (role(['principal']) && resource.data.schoolId == p().schoolId && resource.data.role != 'principal' && resource.data.role != 'super_admin');
+  }
+  match /schoolSettings/{id}{allow read: if schoolOk(resource.data); allow create, update, delete: if superAdmin();}
+  match /{col}/{id}{
+   allow read: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && schoolOk(resource.data) &&
+    (col != 'testAnswerKeys' || staff()) &&
+    (col != 'feedback' || superAdmin() || resource.data.senderUid == request.auth.uid) &&
+    (col != 'reportCards' || role(['principal','teacher']) || resource.data.studentUid == request.auth.uid) &&
+    (col != 'fees' && col != 'feeBills' && col != 'feeReminders' && col != 'testSubmissions' || role(['principal','teacher']) || resource.data.studentUid == request.auth.uid) &&
+    (col != 'homework' && col != 'classwork' && col != 'onlineTests' || role(['principal','teacher','content_admin']) || (col == 'onlineTests' ? resource.data.published == true && classMatch(resource.data) : classMatch(resource.data))) &&
+    (col != 'resources' || role(['principal','teacher','content_admin']) || resource.data.visibility == 'School' || classMatch(resource.data)) &&
+    (col != 'announcements' || role(['principal','teacher']) || resource.data.audience in ['Everyone','Students']);
+   allow create: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && validSchool(request.resource.data) &&
+    (col == 'students' ? (manager() || role(['teacher']) || (signedIn() && request.auth.uid == id && request.resource.data.portalUid == request.auth.uid && request.resource.data.active == false && request.resource.data.role == 'student')) :
+     col == 'fees' ? (manager() || (active() && p().role == 'student' && request.resource.data.studentUid == request.auth.uid && request.resource.data.status == 'pending' && request.resource.data.amount is number && request.resource.data.amount > 0)) :
+     col == 'testSubmissions' ? (active() && p().role == 'student' && request.resource.data.studentUid == request.auth.uid && request.resource.data.score == null) :
+     col == 'feedback' ? (active() && request.resource.data.senderUid == request.auth.uid && request.resource.data.status == 'open' && request.resource.data.message is string && request.resource.data.message.size() >= 10 && request.resource.data.message.size() <= 4000) :
+     col == 'attendance' ? (staff() && request.resource.data.studentUid is string && request.resource.data.status in ['present','absent','late'] && (manager() || request.resource.data.teacherUid == request.auth.uid)) :
+     col in ['classes','directory','subjects','students','feeBills','feeReminders'] ? manager() :
+     col in ['resources','homework','classwork','reportCards','announcements','onlineTests','testAnswerKeys'] ? staff() : false) &&
+    (col != 'homework' && col != 'classwork' || attachmentOk(request.resource.data));
+   allow update: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && schoolOk(resource.data) && sameSchoolOnUpdate() &&
+    (col == 'feedback' ? superAdmin() :
+     col == 'attendance' ? (manager() || (role(['teacher']) && resource.data.teacherUid == request.auth.uid && request.resource.data.teacherUid == request.auth.uid)) :
+     col == 'students' ? (manager() || role(['teacher'])) :
+     col in ['resources','homework','classwork','reportCards','announcements','onlineTests','testAnswerKeys','testSubmissions'] ? staff() :
+     col in ['fees','feeBills','feeReminders','classes','subjects','directory'] ? manager() : false) &&
+    (col != 'homework' && col != 'classwork' || attachmentOk(request.resource.data));
+   allow delete: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && schoolOk(resource.data) && (col == 'feedback' ? superAdmin() : manager());
+  }
+  match /{document=**}{allow read, write: if false;}
+ }
 }
