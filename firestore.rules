@@ -15,12 +15,12 @@ service cloud.firestore {
   function classMatch(d){return d.className == p().className && d.section == (p().section == null ? '' : p().section);}
   function attachmentOk(d){return !('attachment' in d) || d.attachment == null || (d.attachment.size <= 512000 && d.attachment.dataUrl is string && d.attachment.dataUrl.size() <= 700000);}
   match /schools/{id}{
-   allow read: if resource.data.active == true;
+   allow read: if superAdmin() || resource.data.active == true;
    allow create, update, delete: if superAdmin();
   }
   match /users/{uid}{
    allow read: if superAdmin() || (signedIn() && request.auth.uid == uid) || (active() && ((role(['principal','admin']) || role(['teacher','content_admin'])) && resource.data.schoolId == p().schoolId));
-   allow create: if superAdmin() || (signedIn() && request.auth.uid == uid && request.resource.data.role == 'student' && request.resource.data.active == false && request.resource.data.email == request.auth.token.email && request.resource.data.schoolId is string && exists(/databases/$(database)/documents/schools/$(request.resource.data.schoolId)) && get(/databases/$(database)/documents/schools/$(request.resource.data.schoolId)).data.active == true);
+   allow create: if superAdmin() || (role(['principal','admin']) && request.resource.data.schoolId == p().schoolId && request.resource.data.role in ['teacher','content_admin'] && request.resource.data.active is bool) || (signedIn() && request.auth.uid == uid && request.resource.data.role == 'student' && request.resource.data.active == false && request.resource.data.email == request.auth.token.email && request.resource.data.schoolId is string && exists(/databases/$(database)/documents/schools/$(request.resource.data.schoolId)) && get(/databases/$(database)/documents/schools/$(request.resource.data.schoolId)).data.active == true);
    allow update: if superAdmin() || (role(['principal','admin']) && resource.data.schoolId == p().schoolId && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.role in ['student','teacher','content_admin']) || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active && request.resource.data.email == resource.data.email && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']));
    allow delete: if superAdmin() || (role(['principal','admin']) && resource.data.schoolId == p().schoolId && resource.data.role != 'principal' && resource.data.role != 'super_admin');
   }
