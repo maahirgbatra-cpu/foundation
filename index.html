@@ -26,7 +26,7 @@
     <h2 style="margin:0 0 12px">Student sign up</h2>
     <div class="field"><label>Full name</label><input id="signupName" required maxlength="100"></div>
     <div class="field"><label>Admission number</label><input id="signupAdmissionNo" type="text" required maxlength="50" placeholder="Enter your admission number"></div>
-    <div class="field"><label>Class</label><input id="signupClass" type="text" required maxlength="50" placeholder="e.g. Class 9"></div>
+    <div class="field"><label>School</label><select id="signupSchool" required><option value="">Loading schools…</option></select></div>\n    <div class="field"><label>Class</label><select id="signupClass" required><option value="Class 1">Class 1</option><option value="Class 2">Class 2</option><option value="Class 3">Class 3</option><option value="Class 4">Class 4</option><option value="Class 5">Class 5</option><option value="Class 6">Class 6</option><option value="Class 7">Class 7</option><option value="Class 8">Class 8</option><option value="Class 9">Class 9</option><option value="Class 10">Class 10</option><option value="Class 11">Class 11</option><option value="Class 12">Class 12</option></select></div>\n    <div class="field"><label>Section</label><select id="signupSection" required><option value="">Choose section</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
     <div class="field"><label>Email</label><input id="signupEmail" type="email" required></div>
     <div class="field"><label>Password (at least 6 characters)</label><input id="signupPassword" type="password" minlength="6" required></div>
     <div class="field"><label>Confirm password</label><input id="signupConfirm" type="password" minlength="6" required></div>
@@ -59,7 +59,7 @@
    <button data-page="fees"><span class="ico">₹</span>Fee payments</button>
    <button data-page="onlineTests"><span class="ico">✓</span>Online assignments & tests</button>
    <button data-page="announcements"><span class="ico">◉</span>Announcements</button>
-   <button data-page="settings"><span class="ico">⚙</span>School settings</button>
+   <button data-page="settings"><span class="ico">⚙</span>School settings</button>\n   <button data-page="schools"><span class="ico">▦</span>School management</button>
   </nav>
   <div class="side-bottom"><div class="user-mini"><div class="avatar" id="sideAvatar">A</div><div><strong id="sideName">Administrator</strong><small id="sideRole">Super Admin</small></div></div></div>
  </aside>
