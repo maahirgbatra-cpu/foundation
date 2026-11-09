@@ -5,12 +5,13 @@ service cloud.firestore {
   function superAdmin(){return signedIn() && request.auth.uid == 'Y4YUHogoKoVo4bGGe7wOdWUZe5I2';}
   function hasProfile(){return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));}
   function p(){return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;}
-  function active(){return superAdmin() || (hasProfile() && p().active == true);}
+  function schoolActive(sid){return sid is string && exists(/databases/$(database)/documents/schools/$(sid)) && get(/databases/$(database)/documents/schools/$(sid)).data.active == true;}
+  function active(){return superAdmin() || (hasProfile() && p().active == true && schoolActive(p().schoolId));}
   function role(r){return active() && (superAdmin() || p().role in r);}
   function manager(){return superAdmin() || role(['principal','admin']);}
   function staff(){return manager() || role(['teacher','content_admin']);}
-  function schoolOk(d){return superAdmin() || (active() && d.schoolId == p().schoolId);}
-  function validSchool(d){return d.schoolId is string && exists(/databases/$(database)/documents/schools/$(d.schoolId)) && (superAdmin() || (hasProfile() && d.schoolId == p().schoolId));}
+  function schoolOk(d){return superAdmin() || (active() && schoolActive(d.schoolId) && d.schoolId == p().schoolId);}
+  function validSchool(d){return d.schoolId is string && (superAdmin() || (active() && schoolActive(d.schoolId) && d.schoolId == p().schoolId));}
   function sameSchoolOnUpdate(){return request.resource.data.schoolId == resource.data.schoolId;}
   function classMatch(d){return d.className == p().className && d.section == (p().section == null ? '' : p().section);}
   function validTestSubmission(d){return active() && p().role == 'student' && d.studentUid == request.auth.uid && d.score == null && d.testId is string && exists(/databases/$(database)/documents/onlineTests/$(d.testId)) && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.schoolId == d.schoolId && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.published == true && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.className == p().className && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.section == (p().section == null ? '' : p().section);}
@@ -34,9 +35,11 @@ service cloud.firestore {
   match /{col}/{id}{
    allow read: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && schoolOk(resource.data) &&
     (col != 'testAnswerKeys' || staff()) &&
+    (col != 'students' || manager() || role(['teacher']) || resource.data.portalUid == request.auth.uid) &&
+    (col != 'attendance' || manager() || (role(['teacher']) && resource.data.teacherUid == request.auth.uid)) &&
     (col != 'feedback' || superAdmin() || resource.data.senderUid == request.auth.uid) &&
     (col != 'reportCards' || role(['principal','teacher']) || resource.data.studentUid == request.auth.uid) &&
-    (col != 'fees' && col != 'feeBills' && col != 'feeReminders' && col != 'testSubmissions' || role(['principal','teacher']) || resource.data.studentUid == request.auth.uid) &&
+    (col != 'fees' && col != 'feeBills' && col != 'feeReminders' && col != 'testSubmissions' || (col == 'testSubmissions' ? manager() || role(['teacher']) || resource.data.studentUid == request.auth.uid : manager() || resource.data.studentUid == request.auth.uid)) &&
     (col != 'homework' && col != 'classwork' && col != 'onlineTests' || role(['principal','teacher','content_admin']) || (col == 'onlineTests' ? resource.data.published == true && classMatch(resource.data) : classMatch(resource.data))) &&
     (col != 'resources' || role(['principal','teacher','content_admin']) || resource.data.visibility == 'School' || classMatch(resource.data)) &&
     (col != 'announcements' || role(['principal','teacher']) || resource.data.audience in ['Everyone','Students']);
@@ -45,7 +48,7 @@ service cloud.firestore {
      col == 'fees' ? (manager() || (active() && p().role == 'student' && request.resource.data.studentUid == request.auth.uid && request.resource.data.status == 'pending' && request.resource.data.amount is number && request.resource.data.amount > 0)) :
      col == 'testSubmissions' ? validTestSubmission(request.resource.data) :
      col == 'feedback' ? (active() && request.resource.data.senderUid == request.auth.uid && request.resource.data.status == 'open' && request.resource.data.message is string && request.resource.data.message.size() >= 10 && request.resource.data.message.size() <= 4000) :
-     col == 'attendance' ? (staff() && request.resource.data.studentUid is string && request.resource.data.status in ['present','absent','late'] && (manager() || request.resource.data.teacherUid == request.auth.uid)) :
+     col == 'attendance' ? ((manager() || role(['teacher'])) && request.resource.data.studentUid is string && request.resource.data.status in ['present','absent','late'] && (manager() || request.resource.data.teacherUid == request.auth.uid)) :
      col in ['classes','directory','subjects','students','feeBills','feeReminders'] ? manager() :
      col in ['resources','homework','classwork','reportCards','announcements','onlineTests','testAnswerKeys'] ? staff() : false) &&
     (col != 'homework' && col != 'classwork' || attachmentOk(request.resource.data));
