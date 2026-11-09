@@ -15,7 +15,7 @@ service cloud.firestore {
   function classMatch(d){return d.className == p().className && d.section == (p().section == null ? '' : p().section);}
   function attachmentOk(d){return !('attachment' in d) || d.attachment == null || (d.attachment.size <= 512000 && d.attachment.dataUrl is string && d.attachment.dataUrl.size() <= 700000);}
   match /schools/{id}{
-   allow read: if superAdmin() || (signedIn() && resource.data.active == true);
+   allow read: if resource.data.active == true;
    allow create, update, delete: if superAdmin();
   }
   match /users/{uid}{
