@@ -20,9 +20,9 @@ service cloud.firestore {
   }
   match /users/{uid}{
    allow read: if superAdmin() || (signedIn() && request.auth.uid == uid) || (active() && ((role(['principal','admin']) || role(['teacher','content_admin'])) && resource.data.schoolId == p().schoolId));
-   allow create: if superAdmin() || (signedIn() && request.auth.uid == uid && request.resource.data.role == 'student' && request.resource.data.active == false && request.resource.data.email == request.auth.token.email && request.resource.data.schoolId is string && exists(/databases/$(database)/documents/schools/$(request.resource.data.schoolId)) && get(/databases/$(database)/documents/schools/$(request.resource.data.schoolId)).data.active == true;
+   allow create: if superAdmin() || (signedIn() && request.auth.uid == uid && request.resource.data.role == 'student' && request.resource.data.active == false && request.resource.data.email == request.auth.token.email && request.resource.data.schoolId is string && exists(/databases/$(database)/documents/schools/$(request.resource.data.schoolId)) && get(/databases/$(database)/documents/schools/$(request.resource.data.schoolId)).data.active == true);
    allow update: if superAdmin() || (role(['principal','admin']) && resource.data.schoolId == p().schoolId && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.role in ['student','teacher','content_admin']) || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active && request.resource.data.email == resource.data.email && request.resource.data.schoolId == resource.data.schoolId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']));
-   allow delete: if superAdmin() || (role(['principal']) && resource.data.schoolId == p().schoolId && resource.data.role != 'principal' && resource.data.role != 'super_admin');
+   allow delete: if superAdmin() || (role(['principal','admin']) && resource.data.schoolId == p().schoolId && resource.data.role != 'principal' && resource.data.role != 'super_admin');
   }
   match /schoolSettings/{id}{
    allow read: if schoolOk(resource.data);
