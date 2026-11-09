@@ -13,6 +13,7 @@ service cloud.firestore {
   function validSchool(d){return d.schoolId is string && exists(/databases/$(database)/documents/schools/$(d.schoolId)) && (superAdmin() || (hasProfile() && d.schoolId == p().schoolId));}
   function sameSchoolOnUpdate(){return request.resource.data.schoolId == resource.data.schoolId;}
   function classMatch(d){return d.className == p().className && d.section == (p().section == null ? '' : p().section);}
+  function validTestSubmission(d){return active() && p().role == 'student' && d.studentUid == request.auth.uid && d.score == null && d.testId is string && exists(/databases/$(database)/documents/onlineTests/$(d.testId)) && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.schoolId == d.schoolId && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.published == true && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.className == p().className && get(/databases/$(database)/documents/onlineTests/$(d.testId)).data.section == (p().section == null ? '' : p().section);}
   function attachmentOk(d){return !('attachment' in d) || d.attachment == null || (d.attachment.size <= 512000 && d.attachment.dataUrl is string && d.attachment.dataUrl.size() <= 700000);}
   match /schools/{id}{
    allow read: if superAdmin() || resource.data.active == true;
@@ -42,7 +43,7 @@ service cloud.firestore {
    allow create: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && validSchool(request.resource.data) &&
     (col == 'students' ? (manager() || role(['teacher']) || (signedIn() && request.auth.uid == id && request.resource.data.portalUid == request.auth.uid && request.resource.data.active == false && request.resource.data.role == 'student')) :
      col == 'fees' ? (manager() || (active() && p().role == 'student' && request.resource.data.studentUid == request.auth.uid && request.resource.data.status == 'pending' && request.resource.data.amount is number && request.resource.data.amount > 0)) :
-     col == 'testSubmissions' ? (active() && p().role == 'student' && request.resource.data.studentUid == request.auth.uid && request.resource.data.score == null) :
+     col == 'testSubmissions' ? validTestSubmission(request.resource.data) :
      col == 'feedback' ? (active() && request.resource.data.senderUid == request.auth.uid && request.resource.data.status == 'open' && request.resource.data.message is string && request.resource.data.message.size() >= 10 && request.resource.data.message.size() <= 4000) :
      col == 'attendance' ? (staff() && request.resource.data.studentUid is string && request.resource.data.status in ['present','absent','late'] && (manager() || request.resource.data.teacherUid == request.auth.uid)) :
      col in ['classes','directory','subjects','students','feeBills','feeReminders'] ? manager() :
