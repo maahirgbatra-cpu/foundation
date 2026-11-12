@@ -33,33 +33,33 @@ service cloud.firestore {
    allow delete: if superAdmin();
   }
   match /{col}/{id}{
-   allow read: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && schoolOk(resource.data) &&
+   allow read: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback','videos'] && schoolOk(resource.data) &&
     (col != 'testAnswerKeys' || staff()) &&
     (col != 'students' || manager() || role(['teacher']) || resource.data.portalUid == request.auth.uid) &&
     (col != 'attendance' || manager() || (role(['teacher']) && resource.data.teacherUid == request.auth.uid)) &&
     (col != 'feedback' || superAdmin() || resource.data.senderUid == request.auth.uid) &&
     (col != 'reportCards' || role(['principal','teacher']) || resource.data.studentUid == request.auth.uid) &&
     (col != 'fees' && col != 'feeBills' && col != 'feeReminders' && col != 'testSubmissions' || (col == 'testSubmissions' ? manager() || role(['teacher']) || resource.data.studentUid == request.auth.uid : manager() || resource.data.studentUid == request.auth.uid)) &&
-    (col != 'homework' && col != 'classwork' && col != 'onlineTests' || role(['principal','teacher','content_admin']) || (col == 'onlineTests' ? resource.data.published == true && classMatch(resource.data) : classMatch(resource.data))) &&
+    (col != 'homework' && col != 'classwork' && col != 'onlineTests' && col != 'videos' || role(['principal','teacher','content_admin']) || (col == 'onlineTests' ? resource.data.published == true && classMatch(resource.data) : classMatch(resource.data))) &&
     (col != 'resources' || role(['principal','teacher','content_admin']) || resource.data.visibility == 'School' || classMatch(resource.data)) &&
     (col != 'announcements' || role(['principal','teacher']) || resource.data.audience in ['Everyone','Students']);
-   allow create: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && validSchool(request.resource.data) &&
+   allow create: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback','videos'] && validSchool(request.resource.data) &&
     (col == 'students' ? (manager() || role(['teacher']) || (signedIn() && request.auth.uid == id && request.resource.data.portalUid == request.auth.uid && request.resource.data.active == false && request.resource.data.role == 'student')) :
      col == 'fees' ? (manager() || (active() && p().role == 'student' && request.resource.data.studentUid == request.auth.uid && request.resource.data.status == 'pending' && request.resource.data.amount is number && request.resource.data.amount > 0)) :
      col == 'testSubmissions' ? validTestSubmission(request.resource.data) :
      col == 'feedback' ? (active() && request.resource.data.senderUid == request.auth.uid && request.resource.data.status == 'open' && request.resource.data.message is string && request.resource.data.message.size() >= 10 && request.resource.data.message.size() <= 4000) :
      col == 'attendance' ? ((manager() || role(['teacher'])) && request.resource.data.studentUid is string && request.resource.data.status in ['present','absent','late'] && (manager() || request.resource.data.teacherUid == request.auth.uid)) :
      col in ['classes','directory','subjects','students','feeBills','feeReminders'] ? manager() :
-     col in ['resources','homework','classwork','reportCards','announcements','onlineTests','testAnswerKeys'] ? staff() : false) &&
+     col in ['resources','videos','homework','classwork','reportCards','announcements','onlineTests','testAnswerKeys'] ? staff() : false) &&
     (col != 'homework' && col != 'classwork' || attachmentOk(request.resource.data));
-   allow update: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && schoolOk(resource.data) && sameSchoolOnUpdate() &&
+   allow update: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback','videos'] && schoolOk(resource.data) && sameSchoolOnUpdate() &&
     (col == 'feedback' ? superAdmin() :
      col == 'attendance' ? (manager() || (role(['teacher']) && resource.data.teacherUid == request.auth.uid && request.resource.data.teacherUid == request.auth.uid)) :
      col == 'students' ? (manager() || role(['teacher'])) :
-     col in ['resources','homework','classwork','reportCards','announcements','onlineTests','testAnswerKeys','testSubmissions'] ? staff() :
+     col in ['resources','videos','homework','classwork','reportCards','announcements','onlineTests','testAnswerKeys','testSubmissions'] ? staff() :
      col in ['fees','feeBills','feeReminders','classes','subjects','directory'] ? manager() : false) &&
     (col != 'homework' && col != 'classwork' || attachmentOk(request.resource.data));
-   allow delete: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback'] && schoolOk(resource.data) && (col == 'feedback' ? superAdmin() : manager());
+   allow delete: if col in ['directory','classes','students','subjects','resources','homework','classwork','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback','videos'] && schoolOk(resource.data) && (col == 'feedback' ? superAdmin() : col == 'videos' ? (manager() || (role(['teacher']) && resource.data.uploadedBy == request.auth.uid)) : manager());
   }
   match /{document=**}{allow read, write: if false;}
  }
