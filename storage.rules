@@ -2,8 +2,9 @@ rules_version = '2';
 service firebase.storage {
  match /b/{bucket}/o {
   function signedIn(){return request.auth != null;}
+  function superAdmin(){return signedIn() && request.auth.uid == 'Y4YUHogoKoVo4bGGe7wOdWUZe5I2';}
   function profile(){return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;}
-  function activeSchool(sid){return signedIn() && profile().active == true && profile().schoolId == sid && firestore.get(/databases/(default)/documents/schools/$(sid)).data.active == true;}
+  function activeSchool(sid){return superAdmin() || (signedIn() && profile().active == true && profile().schoolId == sid && firestore.get(/databases/(default)/documents/schools/$(sid)).data.active == true);}
   function staff(){return activeSchool(resource.metadata.schoolId) && profile().role in ['super_admin','principal','admin','teacher','content_admin'];}
   match /schools/{schoolId}/videos/{fileName} {
    allow read: if activeSchool(schoolId);
