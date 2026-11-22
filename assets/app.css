@@ -154,3 +154,16 @@ tr:hover td{background:#fcfcfa}
 .directory-no-results{padding:22px;text-align:center;color:var(--muted)}
 @media(max-width:700px){.directory-grid{grid-template-columns:1fr;padding:12px}.directory-summary{gap:8px}.directory-summary>div{padding:12px}.directory-summary strong{font-size:20px}.directory-controls input{min-width:100%}.directory-controls select{flex:1;min-width:120px}}
 
+/* Sidebar navigation hover: keep labels readable and preserve active state. */
+.nav button:hover,
+.nav button:focus-visible {
+  background: #f0efea !important;
+  color: #505b67 !important;
+}
+.nav button.active,
+.nav button.active:hover,
+.nav button.active:focus-visible {
+  background: #e9eef2 !important;
+  color: #234b70 !important;
+  box-shadow: inset 3px 0 0 #b18a4b;
+}
