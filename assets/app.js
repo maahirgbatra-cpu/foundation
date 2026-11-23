@@ -63,9 +63,9 @@ document.getElementById('signupForm').addEventListener('submit',async e=>{
 document.getElementById('logoutBtn').onclick=logout;
 document.getElementById('forgotPassword').onclick=async()=>{const email=document.getElementById('loginEmail').value.trim();if(!email)return toast('Enter your email address first');try{await auth.sendPasswordResetEmail(email);toast('Password reset email sent. Check your inbox.')}catch(e){toast(friendlyError(e))}};document.getElementById('menuBtn').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
 document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-page]');if(!b)return;document.getElementById('sidebar').classList.remove('open');setPage(b.dataset.page)});
-function setPage(p){if(!p||p===page)return;if(!canSee(p))return toast('You do not have permission');searchText='';window.location.href='/'+p+'.html'}
+function setPage(p){if(!p||p===page)return;if(!canSee(p))return toast('You do not have permission');searchText='';page=p;history.pushState({foundationApp:true,page:p},'',location.pathname);render()}
 window.addEventListener('pageshow',()=>document.getElementById('sidebar')?.classList.remove('open'));
-window.addEventListener('popstate',()=>{document.getElementById('sidebar')?.classList.remove('open');if(current&&page==='dashboard')history.pushState({foundationApp:true,page:'dashboard',guard:true},'',location.pathname)});
+window.addEventListener('popstate',e=>{document.getElementById('sidebar')?.classList.remove('open');if(!current)return;const target=e.state?.foundationApp&&e.state.page?e.state.page:'dashboard';page=canSee(target)?target:'dashboard';render()});
 function head(title,desc,action=''){return `<div class="page-head"><div><h1>${title}</h1><p>${desc}</p></div>${action}</div>`}
 function btn(label,fn,cls=''){return `<button class="btn ${cls}" data-action="${fn}">${label}</button>`}
 function stat(label,value,sub,target){return `<button type="button" class="stat stat-button" data-goto="${target}" aria-label="Open ${label}"><span class="k">${label}</span><span class="v">${value}</span><span class="s">${sub}</span><span class="stat-hint">Open section →</span></button>`}
