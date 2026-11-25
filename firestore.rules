@@ -33,7 +33,7 @@ service cloud.firestore {
    allow delete: if superAdmin();
   }
   match /{col}/{id}{
-   allow read: if col in ['directory','classes','students','subjects','resources','homework','classwork','assignments','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback','videos'] && schoolOk(resource.data) &&
+   allow read: if col in ['directory','classes','students','subjects','resources','homework','classwork','assignments','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback','videos','calendar'] && schoolOk(resource.data) &&
     (col != 'testAnswerKeys' || staff()) &&
     (col != 'students' || manager() || role(['teacher']) || resource.data.portalUid == request.auth.uid) &&
     (col != 'attendance' || manager() || (role(['teacher']) && resource.data.teacherUid == request.auth.uid)) &&
