@@ -62,6 +62,6 @@ service cloud.firestore {
     (col != 'homework' && col != 'classwork' && col != 'assignments' || attachmentOk(request.resource.data));
    allow delete: if col in ['directory','classes','students','subjects','resources','homework','classwork','assignments','reportCards','announcements','fees','feeBills','feeReminders','onlineTests','testSubmissions','testAnswerKeys','attendance','feedback','videos'] && schoolOk(resource.data) && (col == 'feedback' ? superAdmin() : col == 'videos' ? (manager() || (role(['teacher']) && resource.data.uploadedBy == request.auth.uid)) : col == 'assignments' ? (manager() || (role(['teacher']) && resource.data.uploadedBy == request.auth.uid)) : manager());
   }
-  match /{document=**}{allow read, write: if false;}
+  match /calendar/{id}{allow read: if schoolOk(resource.data);allow create: if validSchool(request.resource.data) && (manager() || role(['teacher'])) && request.resource.data.createdBy == request.auth.uid;allow update: if schoolOk(resource.data) && sameSchoolOnUpdate() && (manager() || (role(['teacher']) && resource.data.createdBy == request.auth.uid));allow delete: if schoolOk(resource.data) && (manager() || (role(['teacher']) && resource.data.createdBy == request.auth.uid));}\n  match /{document=**}{allow read, write: if false;}
  }
 }
